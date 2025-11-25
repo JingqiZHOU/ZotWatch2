@@ -3,8 +3,6 @@
 from .base import SourceRegistry, get_enabled_sources
 from .arxiv import ArxivSource
 from .crossref import CrossrefSource
-from .openalex import OpenAlexSource
-from .biorxiv import BiorxivSource, MedrxivSource
 from .zotero import ZoteroClient, ZoteroIngestor
 
 __all__ = [
@@ -12,9 +10,6 @@ __all__ = [
     "get_enabled_sources",
     "ArxivSource",
     "CrossrefSource",
-    "OpenAlexSource",
-    "BiorxivSource",
-    "MedrxivSource",
     "ZoteroClient",
     "ZoteroIngestor",
 ]

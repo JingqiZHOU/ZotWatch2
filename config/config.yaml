@@ -16,22 +16,19 @@ sources:
       - "cs.CV"   # Computer Vision and Pattern Recognition
       - "cs.AI"   # Artificial Intelligence
       - "stat.ML" # Machine Learning (Statistics)
-    days_back: 7
-    max_results: 500
+    days_back: 1
+    max_results: 3000
   crossref:
     enabled: true
     mailto: "${CROSSREF_MAILTO}"
-    days_back: 7
-  openalex:
-    enabled: false
-    mailto: "${OPENALEX_MAILTO}"
-    days_back: 7
-  biorxiv:
-    enabled: false
-    days_back: 7
-  medrxiv:
-    enabled: false
-    days_back: 7
+    days_back: 1
+    max_results: 3000
+    use_issn_whitelist: true  # Use ISSN whitelist (data/journal_whitelist.csv) for precise filtering
+    publishers:  # Only used when use_issn_whitelist is false
+      - "Institute of Electrical and Electronics Engineers"
+      - "Springer Nature"
+      - "Elsevier BV"
+      - "Multidisciplinary Digital Publishing Institute"
 
 scoring:
   weights:
@@ -59,12 +56,13 @@ embedding:
   batch_size: 128
 
 # LLM Configuration for AI summaries
+# Supported providers: "openrouter", "kimi"
 llm:
   enabled: true
-  provider: "openrouter"
-  api_key: "${OPENROUTER_API_KEY}"
-  model: "deepseek/deepseek-v3.2-exp"
-  max_tokens: 1024
+  provider: "kimi"
+  api_key: "${MOONSHOT_API_KEY}"
+  model: "kimi-k2-turbo-preview"
+  max_tokens: 5120
   temperature: 0.3
   retry:
     max_attempts: 3
@@ -73,6 +71,15 @@ llm:
   summarize:
     top_n: 20
     cache_expiry_days: 30
+
+# Example Kimi configuration (uncomment to use):
+# llm:
+#   enabled: true
+#   provider: "kimi"
+#   api_key: "${MOONSHOT_API_KEY}"
+#   model: "kimi-k2-thinking-turbo"  # or "kimi-k2-turbo-preview"
+#   max_tokens: 16000  # Thinking models need >=16000
+#   temperature: 1.0   # Thinking models recommend 1.0, normal models 0.6
 
 # Output Configuration
 output:

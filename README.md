@@ -6,7 +6,7 @@ ZotWatch 是一个基于 Zotero 文库构建个人研究兴趣画像，并持续
 
 - **Zotero 同步**：通过 Zotero Web API 获取文库条目，支持增量更新
 - **智能画像构建**：使用 Voyage AI 向量化条目，支持增量嵌入计算（仅处理新增/变更条目）
-- **多源候选抓取**：支持 Crossref、arXiv、bioRxiv/medRxiv、OpenAlex 等数据源
+- **多源候选抓取**：支持 Crossref、arXiv 数据源
 - **智能评分排序**：结合语义相似度、时间衰减、引用指标、期刊质量及白名单加分
 - **AI 摘要生成**：通过 OpenRouter API 调用 Claude 等模型，生成结构化论文摘要
 - **多格式输出**：RSS 订阅、响应式 HTML 报告、推送回 Zotero
@@ -37,7 +37,6 @@ cp .env.example .env
 
 可选的环境变量：
 - `CROSSREF_MAILTO`：Crossref 礼貌池邮箱
-- `OPENALEX_MAILTO`：OpenAlex 礼貌池邮箱
 
 ### 3. 运行
 
@@ -184,10 +183,6 @@ llm:
 ```bash
 uv run zotwatch profile --full
 ```
-
-**Q: 缓存过旧怎么办？**
-
-删除 `data/cache/candidate_cache.json` 强制刷新候选列表。
 
 **Q: 推荐为空？**
 

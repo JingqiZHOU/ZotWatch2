@@ -34,20 +34,15 @@ class ZoteroConfig(BaseModel):
 
 
 # Source Configuration
-class OpenAlexConfig(BaseModel):
-    """OpenAlex source configuration."""
-
-    enabled: bool = False
-    mailto: str = "you@example.com"
-    days_back: int = 7
-
-
 class CrossRefConfig(BaseModel):
     """CrossRef source configuration."""
 
     enabled: bool = True
     mailto: str = "you@example.com"
     days_back: int = 7
+    publishers: List[str] = Field(default_factory=list)
+    max_results: int = 500
+    use_issn_whitelist: bool = False  # Use ISSN whitelist instead of publisher filter
 
 
 class ArxivConfig(BaseModel):
@@ -59,28 +54,11 @@ class ArxivConfig(BaseModel):
     max_results: int = 500
 
 
-class BioRxivConfig(BaseModel):
-    """bioRxiv source configuration."""
-
-    enabled: bool = False
-    days_back: int = 7
-
-
-class MedRxivConfig(BaseModel):
-    """medRxiv source configuration."""
-
-    enabled: bool = False
-    days_back: int = 7
-
-
 class SourcesConfig(BaseModel):
     """Data sources configuration."""
 
-    openalex: OpenAlexConfig = Field(default_factory=OpenAlexConfig)
     crossref: CrossRefConfig = Field(default_factory=CrossRefConfig)
     arxiv: ArxivConfig = Field(default_factory=ArxivConfig)
-    biorxiv: BioRxivConfig = Field(default_factory=BioRxivConfig)
-    medrxiv: MedRxivConfig = Field(default_factory=MedRxivConfig)
 
 
 # Scoring Configuration

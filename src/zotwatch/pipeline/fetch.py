@@ -6,41 +6,22 @@ from typing import List
 
 from zotwatch.config.settings import Settings
 from zotwatch.core.models import CandidateWork
-from zotwatch.infrastructure.storage.cache import FileCache
 from zotwatch.sources.base import get_enabled_sources
 from zotwatch.sources.crossref import CrossrefSource
 
 logger = logging.getLogger(__name__)
 
 
-def fetch_candidates(
-    settings: Settings,
-    base_dir: Path,
-    *,
-    use_cache: bool = True,
-    cache_ttl_hours: int = 12,
-) -> List[CandidateWork]:
+def fetch_candidates(settings: Settings, base_dir: Path) -> List[CandidateWork]:
     """Fetch candidates from all enabled sources.
 
     Args:
         settings: Application settings
-        base_dir: Base directory for cache and profile
-        use_cache: Whether to use cached results
-        cache_ttl_hours: Cache time-to-live in hours
+        base_dir: Base directory for profile
 
     Returns:
         List of candidate works from all sources
     """
-    cache_path = base_dir / "data" / "cache" / "candidate_cache.json"
-    cache = FileCache(cache_path, ttl_hours=cache_ttl_hours)
-
-    # Try to use cache
-    if use_cache:
-        cached = cache.load_if_valid()
-        if cached is not None:
-            return cached
-
-    # Fetch from all enabled sources
     profile_path = base_dir / "data" / "profile.json"
     results: List[CandidateWork] = []
 
@@ -57,15 +38,11 @@ def fetch_candidates(
             logger.error("Failed to fetch from %s: %s", source.name, exc)
 
     logger.info("Fetched %d total candidate works", len(results))
-
-    # Save to cache
-    cache.save(results)
-
     return results
 
 
 class CandidateFetcher:
-    """Legacy wrapper for candidate fetching."""
+    """Wrapper for candidate fetching."""
 
     def __init__(self, settings: Settings, base_dir: Path):
         self.settings = settings

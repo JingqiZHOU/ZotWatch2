@@ -6,10 +6,11 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from zotwatch.config.settings import Settings
 from zotwatch.core.models import CandidateWork, RankedWork
 from zotwatch.infrastructure.embedding import (
     CachingEmbeddingProvider,
@@ -17,10 +18,7 @@ from zotwatch.infrastructure.embedding import (
     FaissIndex,
     VoyageEmbedding,
 )
-
-if TYPE_CHECKING:
-    from zotwatch.config.settings import Settings
-    from zotwatch.infrastructure.embedding.base import BaseEmbeddingProvider
+from zotwatch.infrastructure.embedding.base import BaseEmbeddingProvider
 
 logger = logging.getLogger(__name__)
 

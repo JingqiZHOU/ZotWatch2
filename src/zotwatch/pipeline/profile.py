@@ -3,10 +3,11 @@
 import logging
 from collections import Counter
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional
+from typing import List, Optional
 
 import numpy as np
 
+from zotwatch.config.settings import Settings
 from zotwatch.core.models import ProfileArtifacts, ZoteroItem
 from zotwatch.infrastructure.embedding import (
     CachingEmbeddingProvider,
@@ -14,13 +15,10 @@ from zotwatch.infrastructure.embedding import (
     FaissIndex,
     VoyageEmbedding,
 )
+from zotwatch.infrastructure.embedding.base import BaseEmbeddingProvider
 from zotwatch.infrastructure.storage import ProfileStorage
 from zotwatch.utils.datetime import utc_now
 from zotwatch.utils.text import json_dumps
-
-if TYPE_CHECKING:
-    from zotwatch.config.settings import Settings
-    from zotwatch.infrastructure.embedding.base import BaseEmbeddingProvider
 
 logger = logging.getLogger(__name__)
 

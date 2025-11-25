@@ -40,7 +40,7 @@ uv run zotwatch watch --push
 
 1. **Ingest** (`pipeline/ingest.py`): Fetches items from Zotero Web API, stores in SQLite
 2. **Profile Build** (`pipeline/profile.py`): Vectorizes library items using Voyage AI API (voyage-3.5), builds FAISS index, extracts top authors/venues
-3. **Candidate Fetch** (`pipeline/fetch.py`): Pulls recent papers from Crossref, arXiv, bioRxiv/medRxiv, OpenAlex
+3. **Candidate Fetch** (`pipeline/fetch.py`): Pulls recent papers from Crossref and arXiv
 4. **Deduplication** (`pipeline/dedupe.py`): Filters out papers already in the user's library
 5. **Scoring** (`pipeline/score.py`): Ranks candidates using weighted combination of similarity, recency, citations, journal quality, and whitelist bonuses
 6. **Summarization** (`llm/summarizer.py`): Generates AI summaries via OpenRouter API
@@ -53,10 +53,10 @@ src/zotwatch/
 ├── core/               # Core models, protocols, exceptions
 ├── config/             # Configuration loading and settings
 ├── infrastructure/     # External service integrations
-│   ├── storage/        # SQLite storage, cache
+│   ├── storage/        # SQLite storage
 │   ├── embedding/      # Voyage AI + FAISS
 │   └── http/           # HTTP client
-├── sources/            # Data sources (arXiv, Crossref, OpenAlex, bioRxiv, Zotero)
+├── sources/            # Data sources (arXiv, Crossref, Zotero)
 ├── llm/                # LLM integration (OpenRouter, summarizer)
 ├── pipeline/           # Processing pipeline (ingest, profile, fetch, dedupe, score)
 ├── output/             # Output generation (RSS, HTML, push to Zotero)
@@ -69,7 +69,7 @@ src/zotwatch/
 - `data/profile.sqlite`: SQLite database storing Zotero items and embeddings
 - `data/faiss.index`: FAISS vector index for similarity search
 - `data/profile.json`: Profile summary with top authors, venues, and centroid vector
-- `data/cache/candidate_cache.json`: 12-hour cache of fetched candidates
+- `data/embeddings.sqlite`: Embedding cache for reusing computed vectors
 - `data/journal_metrics.csv`: Optional SJR journal metrics for quality scoring
 
 ### Configuration Files (config/)
@@ -101,12 +101,11 @@ Required:
 Optional:
 - `OPENROUTER_API_KEY`: OpenRouter API key for AI summaries
 - `CROSSREF_MAILTO`: Crossref polite pool email
-- `OPENALEX_MAILTO`: OpenAlex polite pool email
 
 ## Key Constraints
 
 - Preprint ratio is capped at 30% in final results (`_limit_preprints`)
 - Results are filtered to papers within last 7 days (`_filter_recent`)
-- Candidate cache expires after 12 hours
 - GitHub Actions caches profile artifacts monthly to avoid full rebuilds
 - AI summaries require `OPENROUTER_API_KEY` and `llm.enabled: true` in config
+- When writing code, please use English for all comments

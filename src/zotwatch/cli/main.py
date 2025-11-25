@@ -13,7 +13,9 @@ from zotwatch.config import Settings, load_settings
 from zotwatch.core.models import RankedWork
 from zotwatch.infrastructure.embedding import EmbeddingCache, VoyageEmbedding
 from zotwatch.infrastructure.storage import ProfileStorage
-from zotwatch.llm import OpenRouterClient, PaperSummarizer
+from zotwatch.config.settings import LLMConfig
+from zotwatch.llm import KimiClient, OpenRouterClient, PaperSummarizer
+from zotwatch.llm.base import BaseLLMProvider
 from zotwatch.output import render_html, write_rss
 from zotwatch.output.push import ZoteroPusher
 from zotwatch.pipeline import DedupeEngine, ProfileBuilder, WorkRanker
@@ -76,6 +78,71 @@ def _get_cache(ctx: click.Context) -> EmbeddingCache:
     if ctx.obj["_embedding_cache"] is None:
         ctx.obj["_embedding_cache"] = _get_embedding_cache(ctx.obj["base_dir"])
     return ctx.obj["_embedding_cache"]
+
+
+def _create_llm_client(config: LLMConfig) -> BaseLLMProvider:
+    """Create LLM client based on provider configuration."""
+    provider = config.provider.lower()
+    if provider == "kimi":
+        return KimiClient.from_config(config)
+    elif provider == "openrouter":
+        return OpenRouterClient.from_config(config)
+    else:
+        raise ValueError(f"Unknown LLM provider: {config.provider}. Supported providers: 'openrouter', 'kimi'")
+
+
+def _profile_exists(base_dir: Path) -> bool:
+    """Check if profile artifacts exist."""
+    faiss_path = base_dir / "data" / "faiss.index"
+    profile_path = base_dir / "data" / "profile.json"
+    return faiss_path.exists() and profile_path.exists()
+
+
+def _build_profile(
+    base_dir: Path,
+    settings: Settings,
+    embedding_cache: EmbeddingCache,
+    full: bool = True,
+) -> None:
+    """Build user profile from Zotero library."""
+    storage = ProfileStorage(base_dir / "data" / "profile.sqlite")
+    storage.initialize()
+
+    # Ingest from Zotero
+    click.echo("Ingesting items from Zotero...")
+    ingestor = ZoteroIngestor(storage, settings)
+    stats = ingestor.run(full=full)
+    click.echo(f"  Fetched: {stats.fetched}, Updated: {stats.updated}, Removed: {stats.removed}")
+
+    # Count items
+    total_items = storage.count_items()
+    if total_items == 0:
+        raise click.ClickException(
+            "No items found in your Zotero library. Please add some papers to Zotero before running ZotWatch."
+        )
+
+    click.echo(f"Building profile from {total_items} items...")
+
+    # Build profile with unified cache
+    vectorizer = VoyageEmbedding(
+        model_name=settings.embedding.model,
+        api_key=settings.embedding.api_key,
+        input_type=settings.embedding.input_type,
+        batch_size=settings.embedding.batch_size,
+    )
+    builder = ProfileBuilder(
+        base_dir,
+        storage,
+        settings,
+        vectorizer=vectorizer,
+        embedding_cache=embedding_cache,
+    )
+    artifacts = builder.run(full=full)
+
+    click.echo("Profile built successfully:")
+    click.echo(f"  SQLite: {artifacts.sqlite_path}")
+    click.echo(f"  FAISS: {artifacts.faiss_path}")
+    click.echo(f"  JSON: {artifacts.profile_json_path}")
 
 
 @cli.command()
@@ -160,6 +227,13 @@ def watch(
     storage.initialize()
     embedding_cache = _get_cache(ctx)
 
+    # Check if profile exists, build if missing
+    if not _profile_exists(base_dir):
+        click.echo("No profile found. Building profile from your Zotero library...")
+        click.echo("(This is a one-time setup that may take a few minutes)\n")
+        _build_profile(base_dir, settings, embedding_cache, full=True)
+        click.echo()  # Add blank line after profile build
+
     # Incremental ingest
     click.echo("Syncing with Zotero...")
     ingestor = ZoteroIngestor(storage, settings)
@@ -188,7 +262,7 @@ def watch(
 
     # Filter
     ranked = _filter_recent(ranked, days=7)
-    ranked = _limit_preprints(ranked, max_ratio=1.0)
+    ranked = _limit_preprints(ranked, max_ratio=0.7)
 
     if top and len(ranked) > top:
         ranked = ranked[:top]
@@ -208,7 +282,7 @@ def watch(
     # Generate AI summaries for all ranked papers
     if settings.llm.enabled:
         click.echo(f"\nGenerating AI summaries for {len(ranked)} papers...")
-        llm_client = OpenRouterClient.from_config(settings.llm)
+        llm_client = _create_llm_client(settings.llm)
         summarizer = PaperSummarizer(llm_client, storage, model=settings.llm.model)
         summaries = summarizer.summarize_batch(ranked)
         click.echo(f"  Generated {len(summaries)} summaries")
@@ -250,59 +324,6 @@ def watch(
         pusher = ZoteroPusher(settings)
         pusher.push(ranked)
         click.echo("Pushed recommendations to Zotero")
-
-
-@cli.command()
-@click.option("--top", type=int, default=20, help="Number of papers to summarize")
-@click.option("--force", is_flag=True, help="Regenerate existing summaries")
-@click.option("--model", type=str, help="Override LLM model")
-@click.pass_context
-def summarize(ctx: click.Context, top: int, force: bool, model: Optional[str]) -> None:
-    """Generate AI summaries for recent recommendations."""
-    settings = _get_settings(ctx)
-    base_dir = ctx.obj["base_dir"]
-
-    if not settings.llm.enabled:
-        click.echo("LLM is disabled in configuration")
-        return
-
-    storage = ProfileStorage(base_dir / "data" / "profile.sqlite")
-    storage.initialize()
-    embedding_cache = _get_cache(ctx)
-
-    # Load recent ranked works from cache
-    from zotwatch.infrastructure.storage.cache import FileCache
-
-    cache_path = base_dir / "data" / "cache" / "candidate_cache.json"
-    cache = FileCache(cache_path)
-    result = cache.load()
-
-    if not result:
-        click.echo("No cached candidates found. Run 'zotwatch watch' first.")
-        return
-
-    _, candidates = result
-
-    # Re-rank to get scores (with unified embedding cache)
-    click.echo("Re-ranking candidates...")
-    ranker = WorkRanker(base_dir, settings, embedding_cache=embedding_cache)
-
-    dedupe = DedupeEngine(storage)
-    filtered = dedupe.filter(candidates)
-    ranked = ranker.rank(filtered)
-
-    if not ranked:
-        click.echo("No papers to summarize")
-        return
-
-    # Generate summaries
-    click.echo(f"Generating summaries for top {top} papers...")
-    llm_client = OpenRouterClient.from_config(settings.llm)
-    use_model = model or settings.llm.model
-    summarizer = PaperSummarizer(llm_client, storage, model=use_model)
-
-    summaries = summarizer.summarize_batch(ranked[:top], force=force)
-    click.echo(f"Generated {len(summaries)} summaries using {use_model}")
 
 
 def _filter_recent(ranked: List[RankedWork], *, days: int) -> List[RankedWork]:

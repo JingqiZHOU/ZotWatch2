@@ -1,18 +1,13 @@
 """Caching embedding provider with unified SQLite backend."""
 
-from __future__ import annotations
-
 import logging
-from typing import TYPE_CHECKING, Iterable
+from typing import Iterable
 
 import numpy as np
 
+from zotwatch.infrastructure.embedding.base import BaseEmbeddingProvider
+from zotwatch.infrastructure.embedding.cache import EmbeddingCache
 from zotwatch.utils.hashing import hash_content
-
-from .base import BaseEmbeddingProvider
-
-if TYPE_CHECKING:
-    from .cache import EmbeddingCache
 
 logger = logging.getLogger(__name__)
 
