@@ -55,14 +55,17 @@ class ArxivConfig(BaseModel):
 
 
 class ScraperConfig(BaseModel):
-    """Universal scraper configuration for LLM-based abstract extraction."""
+    """Abstract scraper configuration with parallel fetching and rule-based extraction."""
 
     enabled: bool = True
-    rate_limit_delay: float = 2.0  # Seconds between scrape requests
-    timeout: int = 30000  # Page load timeout in milliseconds
+    max_concurrent: int = 3  # Parallel browser instances
+    rate_limit_delay: float = 1.0  # Seconds between requests (sequential mode)
+    timeout: int = 60000  # Page load timeout in milliseconds
+    max_retries: int = 2  # Maximum retry attempts per URL
     max_html_chars: int = 15000  # Max HTML chars to send to LLM
     llm_max_tokens: int = 1024  # Max tokens for LLM response
     llm_temperature: float = 0.1  # LLM temperature for extraction
+    use_llm_fallback: bool = True  # Use LLM when rule extraction fails
 
 
 class SemanticScholarConfig(BaseModel):
