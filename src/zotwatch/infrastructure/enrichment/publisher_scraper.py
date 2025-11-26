@@ -63,6 +63,7 @@ class UniversalScraper:
             sleep_time = self.rate_limit_delay - elapsed
             logger.debug("Rate limiting: sleeping %.1fs", sleep_time)
             time.sleep(sleep_time)
+        self._last_request_time = time.time()
 
     def fetch_abstract(
         self,
@@ -83,7 +84,6 @@ class UniversalScraper:
         # Resolve DOI to actual page
         doi_url = f"https://doi.org/{doi}"
         html, final_url = StealthBrowser.fetch_page(doi_url, self.timeout)
-        self._last_request_time = time.time()
 
         if not html:
             logger.debug("Failed to fetch page for DOI %s", doi)
@@ -103,7 +103,7 @@ class UniversalScraper:
         self,
         items: List[Dict[str, str]],
     ) -> Dict[str, str]:
-        """Fetch abstracts for multiple DOIs.
+        """Fetch abstracts for multiple DOIs sequentially.
 
         Args:
             items: List of dicts with 'doi' and optional 'title'.
@@ -112,14 +112,19 @@ class UniversalScraper:
             Dict mapping DOI to abstract.
         """
         results = {}
-        for item in items:
+        total = len(items)
+        for idx, item in enumerate(items, 1):
             doi = item.get("doi")
             if not doi:
                 continue
             title = item.get("title")
+            logger.info("Fetching [%d/%d]: %s", idx, total, doi)
             abstract = self.fetch_abstract(doi, title)
             if abstract:
                 results[doi] = abstract
+                logger.info("Fetching [%d/%d]: success (%d chars)", idx, total, len(abstract))
+            else:
+                logger.info("Fetching [%d/%d]: no abstract found", idx, total)
         return results
 
     def close(self):

@@ -21,6 +21,7 @@ from zotwatch.output.push import ZoteroPusher
 from zotwatch.pipeline import DedupeEngine, ProfileBuilder, WorkRanker
 from zotwatch.pipeline.fetch import CandidateFetcher
 from zotwatch.pipeline.enrich import AbstractEnricher
+from zotwatch.infrastructure.enrichment.cache import MetadataCache
 from zotwatch.sources.zotero import ZoteroIngestor
 from zotwatch.utils.logging import setup_logging
 
@@ -215,10 +216,10 @@ def watch(
 ) -> None:
     """Fetch, score, and output paper recommendations.
 
-    By default, generates both RSS feed and HTML report with AI summaries.
-    Use --rss or --report to generate only one output format.
+    By default, generates RSS feed and HTML report with AI summaries.
+    Use --rss or --report to generate specific output formats.
     """
-    # If neither specified, generate both
+    # If none specified, generate all
     if not rss and not report:
         rss = True
         report = True
@@ -292,10 +293,17 @@ def watch(
     ranker = WorkRanker(base_dir, settings, embedding_cache=embedding_cache)
     ranked = ranker.rank(filtered)
 
-    # Cleanup expired embedding cache entries
+    # Cleanup expired cache entries
     removed = embedding_cache.cleanup_expired()
     if removed > 0:
         click.echo(f"  Cleaned up {removed} expired embedding cache entries")
+
+    # Cleanup expired metadata cache entries
+    metadata_cache = MetadataCache(base_dir / "data" / "metadata_cache.sqlite")
+    removed_meta = metadata_cache.cleanup_expired()
+    if removed_meta > 0:
+        click.echo(f"  Cleaned up {removed_meta} expired metadata cache entries")
+    metadata_cache.close()
 
     # Filter
     ranked = _filter_recent(ranked, days=7)

@@ -3,6 +3,7 @@
 import json
 import logging
 import sqlite3
+import threading
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -15,6 +16,8 @@ class MetadataCache:
 
     Stores paper abstracts and other metadata with TTL support.
     Uses SQLite backend similar to EmbeddingCache pattern.
+
+    Thread-safe: uses write lock for concurrent access.
     """
 
     def __init__(self, db_path: Path | str) -> None:
@@ -25,6 +28,7 @@ class MetadataCache:
         """
         self._db_path = str(db_path)
         self._conn: sqlite3.Connection | None = None
+        self._write_lock = threading.Lock()  # Protects concurrent writes
         self._ensure_schema()
 
     def _connect(self) -> sqlite3.Connection:
@@ -120,7 +124,7 @@ class MetadataCache:
         citation_count: Optional[int] = None,
         ttl_days: int = 30,
     ) -> None:
-        """Store paper metadata with TTL.
+        """Store paper metadata with TTL (thread-safe).
 
         Args:
             doi: Digital Object Identifier.
@@ -134,16 +138,17 @@ class MetadataCache:
         expires_at = (datetime.now() + timedelta(days=ttl_days)).isoformat()
         authors_json = json.dumps(authors) if authors else None
 
-        conn = self._connect()
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO paper_metadata
-                (doi, abstract, title, authors_json, citation_count, source, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (doi.lower(), abstract, title, authors_json, citation_count, source, expires_at),
-        )
-        conn.commit()
+        with self._write_lock:
+            conn = self._connect()
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO paper_metadata
+                    (doi, abstract, title, authors_json, citation_count, source, expires_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (doi.lower(), abstract, title, authors_json, citation_count, source, expires_at),
+            )
+            conn.commit()
 
     def put_batch(
         self,
@@ -151,7 +156,7 @@ class MetadataCache:
         source: str,
         ttl_days: int = 30,
     ) -> None:
-        """Batch store abstracts.
+        """Batch store abstracts (thread-safe).
 
         Args:
             items: List of (doi, abstract) tuples.
@@ -163,16 +168,17 @@ class MetadataCache:
 
         expires_at = (datetime.now() + timedelta(days=ttl_days)).isoformat()
 
-        conn = self._connect()
-        conn.executemany(
-            """
-            INSERT OR REPLACE INTO paper_metadata
-                (doi, abstract, source, expires_at)
-            VALUES (?, ?, ?, ?)
-            """,
-            [(doi.lower(), abstract, source, expires_at) for doi, abstract in items],
-        )
-        conn.commit()
+        with self._write_lock:
+            conn = self._connect()
+            conn.executemany(
+                """
+                INSERT OR REPLACE INTO paper_metadata
+                    (doi, abstract, source, expires_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                [(doi.lower(), abstract, source, expires_at) for doi, abstract in items],
+            )
+            conn.commit()
 
     def cleanup_expired(self) -> int:
         """Remove expired metadata entries.

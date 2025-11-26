@@ -159,6 +159,7 @@ class AbstractEnricher:
         logger.debug("Cache hits: %d/%d", cache_hits, len(dois_to_check))
 
         # Step 2: Query Semantic Scholar API for cache misses
+        # Results are cached immediately inside _fetch_abstracts
         uncached_dois = [doi for doi in dois_to_check if doi not in cached_abstracts]
         api_abstracts: Dict[str, str] = {}
 
@@ -166,29 +167,14 @@ class AbstractEnricher:
             logger.info("Querying Semantic Scholar for %d papers...", len(uncached_dois))
             api_abstracts = self._fetch_abstracts(uncached_dois)
 
-            # Store in cache
-            if api_abstracts:
-                self.cache.put_batch(
-                    [(doi, abstract) for doi, abstract in api_abstracts.items()],
-                    source="semantic_scholar",
-                    ttl_days=self.config.cache_ttl_days,
-                )
-
         # Step 3: Universal scraper fallback for remaining DOIs
+        # Results are cached immediately inside _fetch_with_scraper
         still_missing_dois = [doi for doi in uncached_dois if doi not in api_abstracts]
         scraper_abstracts: Dict[str, str] = {}
 
         if still_missing_dois and self.config.scraper.enabled and self.llm:
             logger.info("Universal scraper: fetching %d papers...", len(still_missing_dois))
             scraper_abstracts = self._fetch_with_scraper(still_missing_dois, needs_enrichment)
-
-            # Store in cache
-            if scraper_abstracts:
-                self.cache.put_batch(
-                    [(doi, abstract) for doi, abstract in scraper_abstracts.items()],
-                    source="llm_scraper",
-                    ttl_days=self.config.cache_ttl_days,
-                )
         elif still_missing_dois and self.config.scraper.enabled and not self.llm:
             logger.debug("Universal scraper skipped: LLM provider not available")
 
@@ -244,6 +230,8 @@ class AbstractEnricher:
     def _fetch_abstracts(self, dois: List[str]) -> Dict[str, str]:
         """Fetch abstracts from Semantic Scholar in batches.
 
+        Caches each batch immediately after fetching to prevent data loss.
+
         Args:
             dois: List of DOIs to fetch.
 
@@ -258,13 +246,21 @@ class AbstractEnricher:
             try:
                 batch_results = self.client.get_abstracts_batch(batch)
                 results.update(batch_results)
-                logger.debug(
-                    "Batch %d-%d: fetched %d/%d abstracts",
-                    i,
-                    i + len(batch),
-                    len(batch_results),
-                    len(batch),
-                )
+
+                # Cache immediately after each batch to prevent data loss
+                if batch_results:
+                    self.cache.put_batch(
+                        [(doi, abstract) for doi, abstract in batch_results.items()],
+                        source="semantic_scholar",
+                        ttl_days=self.config.cache_ttl_days,
+                    )
+                    logger.debug(
+                        "Batch %d-%d: fetched and cached %d/%d abstracts",
+                        i,
+                        i + len(batch),
+                        len(batch_results),
+                        len(batch),
+                    )
             except Exception as e:
                 logger.warning("Failed to fetch batch %d-%d: %s", i, i + len(batch), e)
 
@@ -276,6 +272,8 @@ class AbstractEnricher:
         candidates: List[CandidateWork],
     ) -> Dict[str, str]:
         """Fetch abstracts using universal scraper (Firefox + LLM).
+
+        Caches each result immediately after fetching to prevent data loss.
 
         Args:
             dois: List of DOIs to fetch.
@@ -292,9 +290,6 @@ class AbstractEnricher:
         # Create DOI -> title mapping for LLM context
         doi_to_title = {c.doi: c.title for c in candidates if c.doi}
 
-        # Build items list with titles
-        items = [{"doi": doi, "title": doi_to_title.get(doi)} for doi in dois]
-
         scraper = UniversalScraper(
             llm=self.llm,
             rate_limit_delay=scraper_config.rate_limit_delay,
@@ -304,10 +299,56 @@ class AbstractEnricher:
             llm_temperature=scraper_config.llm_temperature,
         )
 
+        results: Dict[str, str] = {}
+        failed_dois: List[str] = []
+        total = len(dois)
+
         try:
-            results = scraper.fetch_batch(items)
+            # First pass: fetch all DOIs
+            for idx, doi in enumerate(dois, 1):
+                title = doi_to_title.get(doi)
+                logger.info("Scraper [%d/%d]: fetching %s", idx, total, doi)
+                abstract = scraper.fetch_abstract(doi, title)
+
+                if abstract:
+                    results[doi] = abstract
+                    # Cache immediately after each successful fetch
+                    self.cache.put(
+                        doi=doi,
+                        abstract=abstract,
+                        source="llm_scraper",
+                        title=title,
+                        ttl_days=self.config.cache_ttl_days,
+                    )
+                    logger.info("Scraper [%d/%d]: success (%d chars)", idx, total, len(abstract))
+                else:
+                    logger.info("Scraper [%d/%d]: no abstract found", idx, total)
+                    failed_dois.append(doi)
+
+            # Second pass: retry failed DOIs once
+            if failed_dois:
+                logger.info("Retrying %d failed DOIs...", len(failed_dois))
+                retry_total = len(failed_dois)
+                for idx, doi in enumerate(failed_dois, 1):
+                    title = doi_to_title.get(doi)
+                    logger.info("Retry [%d/%d]: fetching %s", idx, retry_total, doi)
+                    abstract = scraper.fetch_abstract(doi, title)
+
+                    if abstract:
+                        results[doi] = abstract
+                        self.cache.put(
+                            doi=doi,
+                            abstract=abstract,
+                            source="llm_scraper",
+                            title=title,
+                            ttl_days=self.config.cache_ttl_days,
+                        )
+                        logger.info("Retry [%d/%d]: success (%d chars)", idx, retry_total, len(abstract))
+                    else:
+                        logger.info("Retry [%d/%d]: still failed", idx, retry_total)
+
             if results:
-                logger.info("Universal scraper: fetched %d/%d abstracts", len(results), len(dois))
+                logger.info("Universal scraper: fetched %d/%d abstracts", len(results), total)
             return results
         finally:
             scraper.close()

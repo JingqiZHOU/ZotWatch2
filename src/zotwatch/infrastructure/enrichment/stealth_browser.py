@@ -5,6 +5,7 @@ like ScienceDirect, without needing additional stealth plugins.
 """
 
 import logging
+import threading
 from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -16,30 +17,34 @@ class StealthBrowser:
     Firefox is preferred over Chromium because it naturally bypasses
     many bot detection mechanisms without requiring stealth plugins.
     Verified to work with ScienceDirect and other major publishers.
+
+    Thread-safe: supports concurrent page fetching via multiple contexts.
     """
 
     _playwright = None
     _browser = None
     _initialized = False
+    _init_lock = threading.Lock()  # Protects browser initialization
 
     @classmethod
     def get_browser(cls):
-        """Get or create Firefox browser instance."""
-        if cls._initialized:
-            return cls._browser
+        """Get or create Firefox browser instance (thread-safe)."""
+        with cls._init_lock:
+            if cls._initialized:
+                return cls._browser
 
-        cls._initialized = True
-        try:
-            from playwright.sync_api import sync_playwright
+            cls._initialized = True
+            try:
+                from playwright.sync_api import sync_playwright
 
-            cls._playwright = sync_playwright().start()
-            cls._browser = cls._playwright.firefox.launch(headless=True)
-            logger.info("Firefox browser initialized")
-            return cls._browser
-        except Exception as e:
-            logger.warning("Failed to initialize Firefox browser: %s", e)
-            cls._browser = None
-            return None
+                cls._playwright = sync_playwright().start()
+                cls._browser = cls._playwright.firefox.launch(headless=True)
+                logger.info("Firefox browser initialized")
+                return cls._browser
+            except Exception as e:
+                logger.warning("Failed to initialize Firefox browser: %s", e)
+                cls._browser = None
+                return None
 
     @classmethod
     def fetch_page(cls, url: str, timeout: int = 30000) -> Tuple[Optional[str], Optional[str]]:
