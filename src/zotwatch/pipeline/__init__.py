@@ -2,6 +2,7 @@
 
 from .dedupe import DedupeEngine
 from .enrich import AbstractEnricher, EnrichmentStats, enrich_candidates
+from .featured import FeaturedSelector
 from .fetch import fetch_candidates
 from .ingest import ingest_zotero
 from .profile import ProfileBuilder
@@ -16,4 +17,5 @@ __all__ = [
     "enrich_candidates",
     "DedupeEngine",
     "WorkRanker",
+    "FeaturedSelector",
 ]

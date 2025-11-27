@@ -10,15 +10,15 @@ from dotenv import load_dotenv
 
 from zotwatch import __version__
 from zotwatch.config import Settings, load_settings
-from zotwatch.core.models import RankedWork
-from zotwatch.infrastructure.embedding import EmbeddingCache, VoyageEmbedding
+from zotwatch.core.models import FeaturedWork, RankedWork
+from zotwatch.infrastructure.embedding import EmbeddingCache, VoyageEmbedding, VoyageReranker
 from zotwatch.infrastructure.storage import ProfileStorage
 from zotwatch.config.settings import LLMConfig
-from zotwatch.llm import KimiClient, OpenRouterClient, PaperSummarizer
+from zotwatch.llm import InterestRefiner, KimiClient, OpenRouterClient, OverallSummarizer, PaperSummarizer
 from zotwatch.llm.base import BaseLLMProvider
 from zotwatch.output import render_html, write_rss
 from zotwatch.output.push import ZoteroPusher
-from zotwatch.pipeline import DedupeEngine, ProfileBuilder, WorkRanker
+from zotwatch.pipeline import DedupeEngine, FeaturedSelector, ProfileBuilder, WorkRanker
 from zotwatch.pipeline.fetch import CandidateFetcher
 from zotwatch.pipeline.enrich import AbstractEnricher
 from zotwatch.infrastructure.enrichment.cache import MetadataCache
@@ -289,6 +289,45 @@ def watch(
         click.echo(f"  Filtered: {removed_no_abstract} candidates without abstracts removed")
         logger.info("Removed %d candidates without abstracts", removed_no_abstract)
 
+    # Interest-based featured selection (optional)
+    featured_works: List[FeaturedWork] = []
+    interests_config = settings.scoring.interests
+
+    if interests_config.enabled and interests_config.description.strip():
+        click.echo("Selecting featured papers based on research interests...")
+        try:
+            # Create LLM client for interest refinement
+            llm_client = _create_llm_client(settings.llm)
+            refiner = InterestRefiner(llm_client, model=settings.llm.model)
+
+            # Create reranker
+            reranker = VoyageReranker(
+                api_key=settings.embedding.api_key,
+                model=settings.scoring.rerank.model,
+            )
+
+            # Create vectorizer for feature selector
+            vectorizer = VoyageEmbedding(
+                model_name=settings.embedding.model,
+                api_key=settings.embedding.api_key,
+                input_type=settings.embedding.input_type,
+                batch_size=settings.embedding.batch_size,
+            )
+
+            # Select featured papers
+            selector = FeaturedSelector(
+                settings=settings,
+                vectorizer=vectorizer,
+                reranker=reranker,
+                interest_refiner=refiner,
+            )
+            featured_works = selector.select(filtered)
+            click.echo(f"  Selected {len(featured_works)} featured papers")
+
+        except Exception as e:
+            logger.warning("Featured selection failed: %s", e)
+            click.echo(f"  Featured selection skipped (error: {e})")
+
     # Rank (with unified embedding cache)
     click.echo("Ranking candidates...")
     ranker = WorkRanker(base_dir, settings, embedding_cache=embedding_cache)
@@ -325,9 +364,10 @@ def watch(
     for idx, work in enumerate(ranked[:10], start=1):
         click.echo(f"  {idx:02d} | {work.score:.3f} | {work.label} | {work.title[:60]}...")
 
-    # Generate AI summaries for all ranked papers
+    # Generate AI summaries for all ranked papers and featured papers
+    overall_summaries = {}
     if settings.llm.enabled:
-        click.echo(f"\nGenerating AI summaries for {len(ranked)} papers...")
+        click.echo(f"\nGenerating AI summaries for {len(ranked)} similarity papers...")
         llm_client = _create_llm_client(settings.llm)
         summarizer = PaperSummarizer(llm_client, storage, model=settings.llm.model)
         summaries = summarizer.summarize_batch(ranked)
@@ -338,6 +378,34 @@ def watch(
         for work in ranked:
             if work.identifier in summary_map:
                 work.summary = summary_map[work.identifier]
+
+        # Generate summaries for featured works
+        if featured_works:
+            click.echo(f"Generating AI summaries for {len(featured_works)} featured papers...")
+            featured_summaries = summarizer.summarize_batch(featured_works)
+            click.echo(f"  Generated {len(featured_summaries)} featured summaries")
+
+            # Attach summaries to featured works
+            featured_summary_map = {s.paper_id: s for s in featured_summaries}
+            for work in featured_works:
+                if work.identifier in featured_summary_map:
+                    work.summary = featured_summary_map[work.identifier]
+
+        # Generate overall summaries for report header
+        click.echo("Generating overall summaries for report...")
+        overall_summarizer = OverallSummarizer(llm_client, model=settings.llm.model)
+
+        if featured_works:
+            click.echo("  Summarizing featured papers...")
+            overall_summaries["featured"] = overall_summarizer.summarize_section(
+                featured_works, "featured"
+            )
+
+        if ranked:
+            click.echo("  Summarizing similarity papers...")
+            overall_summaries["similarity"] = overall_summarizer.summarize_section(
+                ranked, "similarity"
+            )
     else:
         click.echo("\nAI summaries disabled (llm.enabled=false in config)")
 
@@ -362,6 +430,8 @@ def watch(
             ranked,
             report_path,
             template_dir=template_dir if template_dir.exists() else None,
+            featured_works=featured_works if featured_works else None,
+            overall_summaries=overall_summaries if overall_summaries else None,
         )
         click.echo(f"HTML report: {report_path}")
 

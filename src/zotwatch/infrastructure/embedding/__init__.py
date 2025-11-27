@@ -4,6 +4,7 @@ from .base import BaseEmbeddingProvider
 from .cache import EmbeddingCache
 from .cached import CachingEmbeddingProvider
 from .faiss_index import FaissIndex
+from .rerank import VoyageReranker
 from .voyage import VoyageEmbedding
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "EmbeddingCache",
     "FaissIndex",
     "VoyageEmbedding",
+    "VoyageReranker",
 ]

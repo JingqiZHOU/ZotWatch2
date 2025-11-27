@@ -100,6 +100,20 @@ class RankedWork(CandidateWork):
     summary: Optional["PaperSummary"] = None
 
 
+class FeaturedWork(RankedWork):
+    """Featured paper with rerank score."""
+
+    rerank_score: float
+
+
+class RefinedInterests(BaseModel):
+    """LLM-refined research interests."""
+
+    refined_query: str
+    include_keywords: List[str] = Field(default_factory=list)
+    exclude_keywords: List[str] = Field(default_factory=list)
+
+
 @dataclass
 class ProfileArtifacts:
     """Paths to profile artifact files."""
@@ -144,6 +158,18 @@ class PaperSummary(BaseModel):
     tokens_used: int = 0
 
 
+class OverallSummary(BaseModel):
+    """Overall summary for a section of papers."""
+
+    section_type: str  # "featured" or "similarity"
+    summary_text: str  # 4-6 sentences in Chinese
+    paper_count: int
+    key_themes: List[str] = Field(default_factory=list)
+    generated_at: datetime = Field(default_factory=datetime.utcnow)
+    model_used: str
+    tokens_used: int = 0
+
+
 # Update forward reference
 RankedWork.model_rebuild()
 
@@ -152,8 +178,11 @@ __all__ = [
     "ZoteroItem",
     "CandidateWork",
     "RankedWork",
+    "FeaturedWork",
+    "RefinedInterests",
     "ProfileArtifacts",
     "BulletSummary",
     "DetailedAnalysis",
     "PaperSummary",
+    "OverallSummary",
 ]

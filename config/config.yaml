@@ -45,6 +45,24 @@ scoring:
     must_read: 0.65
     consider: 0.45
 
+  # User research interests for featured recommendations (optional)
+  interests:
+    enabled: true
+    description: |
+      我现在重点关注下面的研究方向：
+      1) SAR 图像目标识别、检测、跟踪，尤其针对舰船目标
+      2) 多源传感器融合，尤其是 SAR 与红外的融合
+      3) 视觉基础模型预训练（例如：CLIP、MAE、DINO、JEPA 等相关方法）
+      4) 大语言模型的最新进展
+      5) 希望排除生物医学领域的研究
+    top_k_recall: 50  # FAISS recall count
+    top_k_featured: 5  # Final featured papers count
+
+  # Voyage Rerank settings (uses VOYAGE_API_KEY)
+  rerank:
+    enabled: true
+    model: "rerank-2.5"
+
 embedding:
   provider: "voyage"
   model: "voyage-3.5"

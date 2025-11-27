@@ -39,5 +39,50 @@ DETAILED_ANALYSIS_PROMPT = """请对以下学术论文进行详细分析。
 
 重要：只返回 JSON 对象，不要添加任何额外文字或 markdown 格式。"""
 
+INTEREST_REFINEMENT_PROMPT = """You are an academic research assistant. Based on the user's research interest description, generate an optimized search query for finding relevant academic papers.
 
-__all__ = ["BULLET_SUMMARY_PROMPT", "DETAILED_ANALYSIS_PROMPT"]
+User's research interests:
+{user_interests}
+
+Please output a JSON object with the following fields:
+{{
+  "refined_query": "A refined English query for retrieving relevant papers (50-100 words, covering key research topics, methods, and applications)",
+  "include_keywords": ["keyword1", "keyword2", ...],
+  "exclude_keywords": ["exclude1", "exclude2", ...]
+}}
+
+Guidelines:
+- The refined_query should be a comprehensive English description suitable for semantic search
+- include_keywords should contain 5-10 important technical terms
+- exclude_keywords should contain terms the user explicitly wants to avoid
+- If no exclusions are mentioned, return an empty array for exclude_keywords
+
+Important: Only return the JSON object, no additional text or markdown formatting."""
+
+OVERALL_SUMMARY_PROMPT = """请根据以下学术论文列表，撰写一段综合性总结。
+
+论文数量：{paper_count}
+论文类型：{section_type}
+
+论文列表：
+{papers_list}
+
+请撰写 4-6 句话的中文总结，涵盖以下方面：
+1. 这批论文的主要研究主题和趋势
+2. 采用的主要研究方法或技术
+3. 几篇代表性论文及其核心贡献
+4. 这些论文对相关领域的整体价值
+
+请以 JSON 格式返回，包含以下键：
+- summary_text: 综合性总结（4-6 句话）
+- key_themes: 主要研究主题列表（3-5 个关键词）
+
+重要：只返回 JSON 对象，不要添加任何额外文字或 markdown 格式。"""
+
+
+__all__ = [
+    "BULLET_SUMMARY_PROMPT",
+    "DETAILED_ANALYSIS_PROMPT",
+    "INTEREST_REFINEMENT_PROMPT",
+    "OVERALL_SUMMARY_PROMPT",
+]

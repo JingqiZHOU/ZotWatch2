@@ -83,10 +83,28 @@ class Thresholds(BaseModel):
     consider: float = 0.45
 
 
+class InterestsConfig(BaseModel):
+    """User research interests configuration."""
+
+    enabled: bool = False
+    description: str = ""  # Natural language interest description
+    top_k_recall: int = 50  # FAISS recall count
+    top_k_featured: int = 5  # Final featured papers count
+
+
+class RerankConfig(BaseModel):
+    """Voyage Rerank configuration."""
+
+    enabled: bool = True
+    model: str = "rerank-2"
+
+
 class ScoringConfig(BaseModel):
     """Scoring and ranking configuration."""
 
     thresholds: Thresholds = Field(default_factory=Thresholds)
+    interests: InterestsConfig = Field(default_factory=InterestsConfig)
+    rerank: RerankConfig = Field(default_factory=RerankConfig)
 
 
 # Embedding Configuration
@@ -189,6 +207,8 @@ __all__ = [
     "SourcesConfig",
     "ScraperConfig",
     "ScoringConfig",
+    "InterestsConfig",
+    "RerankConfig",
     "EmbeddingConfig",
     "LLMConfig",
     "OutputConfig",
