@@ -11,7 +11,6 @@ import logging
 import threading
 import time
 from pathlib import Path
-from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -380,7 +379,7 @@ class StealthBrowser:
         url: str,
         timeout: int,
         max_retries: int,
-    ) -> Tuple[Optional[str], Optional[str]]:
+    ) -> tuple[str | None, str | None]:
         """Async implementation of page fetching."""
         for attempt in range(max_retries):
             page = None
@@ -457,7 +456,7 @@ class StealthBrowser:
         url: str,
         timeout: int = DEFAULT_TIMEOUT,
         max_retries: int = MAX_CF_RETRIES,
-    ) -> Tuple[Optional[str], Optional[str]]:
+    ) -> tuple[str | None, str | None]:
         """Fetch page content with Cloudflare Turnstile bypass.
 
         Args:

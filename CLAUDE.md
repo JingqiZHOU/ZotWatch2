@@ -108,3 +108,4 @@ Optional:
 - GitHub Actions caches profile artifacts monthly to avoid full rebuilds
 - AI summaries require `OPENROUTER_API_KEY` and `llm.enabled: true` in config
 - When writing code, please use English for all comments
+- Use Python 3.10+ type annotation syntax: `list[X]`, `dict[K, V]`, `X | None` instead of `List`, `Dict`, `Optional` from typing module

@@ -4,7 +4,6 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
 
 from zotwatch.config.settings import Settings
 from zotwatch.core.models import CandidateWork, RankedWork
@@ -34,8 +33,8 @@ class WorkRanker:
         self,
         base_dir: Path | str,
         settings: Settings,
-        vectorizer: Optional[BaseEmbeddingProvider] = None,
-        embedding_cache: Optional[EmbeddingCache] = None,
+        vectorizer: BaseEmbeddingProvider | None = None,
+        embedding_cache: EmbeddingCache | None = None,
     ):
         """Initialize work ranker.
 
@@ -83,7 +82,7 @@ class WorkRanker:
             raise FileNotFoundError("Profile JSON not found; run profile build first.")
         return json.loads(path.read_text(encoding="utf-8"))
 
-    def rank(self, candidates: List[CandidateWork]) -> List[RankedWork]:
+    def rank(self, candidates: list[CandidateWork]) -> list[RankedWork]:
         """Rank candidates by embedding similarity."""
         if not candidates:
             return []
@@ -96,7 +95,7 @@ class WorkRanker:
         distances, _ = self.index.search(vectors, top_k=1)
         thresholds = self.settings.scoring.thresholds
 
-        ranked: List[RankedWork] = []
+        ranked: list[RankedWork] = []
         for candidate, distance in zip(candidates, distances):
             similarity = float(distance[0]) if distance.size else 0.0
             score = similarity  # Score is simply the similarity

@@ -2,7 +2,6 @@
 
 import json
 import logging
-from typing import List, Optional, Union
 
 from zotwatch.core.models import (
     FeaturedWork,
@@ -23,14 +22,14 @@ class OverallSummarizer:
     def __init__(
         self,
         llm: BaseLLMProvider,
-        model: Optional[str] = None,
+        model: str | None = None,
     ):
         self.llm = llm
         self.model = model
 
     def summarize_section(
         self,
-        works: List[Union[RankedWork, FeaturedWork]],
+        works: list[RankedWork | FeaturedWork],
         section_type: str,
     ) -> OverallSummary:
         """Generate overall summary for a section of papers.
@@ -76,7 +75,7 @@ class OverallSummarizer:
 
     def _format_papers_list(
         self,
-        works: List[Union[RankedWork, FeaturedWork]],
+        works: list[RankedWork | FeaturedWork],
         max_papers: int = 10,
     ) -> str:
         """Format papers list for prompt."""

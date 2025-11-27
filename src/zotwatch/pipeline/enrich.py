@@ -3,7 +3,6 @@
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 from zotwatch.config.settings import Settings
 from zotwatch.core.models import CandidateWork
@@ -54,8 +53,8 @@ class AbstractEnricher:
         self,
         settings: Settings,
         base_dir: Path,
-        llm: Optional[BaseLLMProvider] = None,
-        cache: Optional[MetadataCache] = None,
+        llm: BaseLLMProvider | None = None,
+        cache: MetadataCache | None = None,
     ):
         """Initialize the enricher.
 
@@ -76,7 +75,7 @@ class AbstractEnricher:
             cache_path = self.base_dir / "data" / "metadata.sqlite"
             self.cache = MetadataCache(cache_path)
 
-    def enrich(self, candidates: List[CandidateWork]) -> Tuple[List[CandidateWork], EnrichmentStats]:
+    def enrich(self, candidates: list[CandidateWork]) -> tuple[list[CandidateWork], EnrichmentStats]:
         """Enrich candidates with missing abstracts.
 
         Args:
@@ -140,7 +139,7 @@ class AbstractEnricher:
 
         # Step 2: Scraper for cache misses
         uncached_dois = [doi for doi in dois_to_check if doi not in cached_abstracts]
-        scraper_abstracts: Dict[str, str] = {}
+        scraper_abstracts: dict[str, str] = {}
 
         if uncached_dois:
             logger.info("Scraper: fetching %d papers...", len(uncached_dois))
@@ -195,9 +194,9 @@ class AbstractEnricher:
 
     def _fetch_with_scraper(
         self,
-        dois: List[str],
-        candidates: List[CandidateWork],
-    ) -> Dict[str, str]:
+        dois: list[str],
+        candidates: list[CandidateWork],
+    ) -> dict[str, str]:
         """Fetch abstracts using scraper (Camoufox + rules + LLM fallback).
 
         Uses sequential fetching with rate limiting.
@@ -228,7 +227,7 @@ class AbstractEnricher:
         )
 
         # Callback to cache results immediately as they complete
-        def on_result(doi: str, abstract: Optional[str]) -> None:
+        def on_result(doi: str, abstract: str | None) -> None:
             if abstract:
                 title = doi_to_title.get(doi)
                 self.cache.put(
@@ -251,11 +250,11 @@ class AbstractEnricher:
 
 
 def enrich_candidates(
-    candidates: List[CandidateWork],
+    candidates: list[CandidateWork],
     settings: Settings,
     base_dir: Path,
-    llm: Optional[BaseLLMProvider] = None,
-) -> Tuple[List[CandidateWork], EnrichmentStats]:
+    llm: BaseLLMProvider | None = None,
+) -> tuple[list[CandidateWork], EnrichmentStats]:
     """Convenience function to enrich candidates with missing abstracts.
 
     Args:

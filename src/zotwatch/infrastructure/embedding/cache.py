@@ -1,36 +1,19 @@
 """Unified embedding cache storage layer."""
 
 import logging
-import sqlite3
 from datetime import datetime, timedelta
-from pathlib import Path
+
+from zotwatch.infrastructure.cache_base import BaseSQLiteCache
 
 logger = logging.getLogger(__name__)
 
 
-class EmbeddingCache:
+class EmbeddingCache(BaseSQLiteCache):
     """Unified embedding cache with SQLite backend.
 
     Stores embeddings with composite key (content_hash, model) to support
     automatic invalidation when switching embedding models.
     """
-
-    def __init__(self, db_path: Path | str) -> None:
-        """Initialize the cache.
-
-        Args:
-            db_path: Path to SQLite database file.
-        """
-        self._db_path = str(db_path)
-        self._conn: sqlite3.Connection | None = None
-        self._ensure_schema()
-
-    def _connect(self) -> sqlite3.Connection:
-        """Get or create database connection."""
-        if self._conn is None:
-            self._conn = sqlite3.connect(self._db_path)
-            self._conn.row_factory = sqlite3.Row
-        return self._conn
 
     def _ensure_schema(self) -> None:
         """Create embeddings table if not exists."""
@@ -57,6 +40,14 @@ class EmbeddingCache:
                 ON embeddings(model);
         """)
         conn.commit()
+
+    def _get_expires_column(self) -> str:
+        """Return the column name for expiration timestamps."""
+        return "expires_at"
+
+    def _get_table_name(self) -> str:
+        """Return the main table name."""
+        return "embeddings"
 
     def get(self, content_hash: str, model: str) -> bytes | None:
         """Get a single cached embedding.
@@ -119,7 +110,7 @@ class EmbeddingCache:
         source_id: str | None = None,
         ttl_days: int | None = None,
     ) -> None:
-        """Store a single embedding.
+        """Store a single embedding (thread-safe).
 
         Args:
             content_hash: SHA256 hash of content.
@@ -133,16 +124,17 @@ class EmbeddingCache:
         if ttl_days is not None:
             expires_at = (datetime.now() + timedelta(days=ttl_days)).isoformat()
 
-        conn = self._connect()
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO embeddings
-                (content_hash, model, embedding, source_type, source_id, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (content_hash, model, embedding, source_type, source_id, expires_at),
-        )
-        conn.commit()
+        with self._write_lock:
+            conn = self._connect()
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO embeddings
+                    (content_hash, model, embedding, source_type, source_id, expires_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (content_hash, model, embedding, source_type, source_id, expires_at),
+            )
+            conn.commit()
 
     def put_batch(
         self,
@@ -152,7 +144,7 @@ class EmbeddingCache:
         source_ids: list[str] | None = None,
         ttl_days: int | None = None,
     ) -> None:
-        """Batch store embeddings.
+        """Batch store embeddings (thread-safe).
 
         Args:
             items: List of (content_hash, embedding_bytes) tuples.
@@ -168,38 +160,20 @@ class EmbeddingCache:
         if ttl_days is not None:
             expires_at = (datetime.now() + timedelta(days=ttl_days)).isoformat()
 
-        conn = self._connect()
         if source_ids is None:
             source_ids = [None] * len(items)
 
-        conn.executemany(
-            """
-            INSERT OR REPLACE INTO embeddings
-                (content_hash, model, embedding, source_type, source_id, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            [(h, model, emb, source_type, sid, expires_at) for (h, emb), sid in zip(items, source_ids)],
-        )
-        conn.commit()
-
-    def cleanup_expired(self) -> int:
-        """Remove expired embeddings.
-
-        Returns:
-            Number of deleted rows.
-        """
-        conn = self._connect()
-        cur = conn.execute(
-            """
-            DELETE FROM embeddings
-            WHERE expires_at IS NOT NULL AND expires_at <= datetime('now')
-            """
-        )
-        count = cur.rowcount
-        conn.commit()
-        if count > 0:
-            logger.info("Cleaned up %d expired embedding cache entries", count)
-        return count
+        with self._write_lock:
+            conn = self._connect()
+            conn.executemany(
+                """
+                INSERT OR REPLACE INTO embeddings
+                    (content_hash, model, embedding, source_type, source_id, expires_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                [(h, model, emb, source_type, sid, expires_at) for (h, emb), sid in zip(items, source_ids)],
+            )
+            conn.commit()
 
     def invalidate_model(self, model: str) -> int:
         """Delete all embeddings for a specific model.
@@ -265,12 +239,6 @@ class EmbeddingCache:
 
         cur = conn.execute(query, params)
         return cur.fetchone()[0]
-
-    def close(self) -> None:
-        """Close database connection."""
-        if self._conn is not None:
-            self._conn.close()
-            self._conn = None
 
 
 __all__ = ["EmbeddingCache"]

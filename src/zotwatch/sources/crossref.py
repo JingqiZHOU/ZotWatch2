@@ -2,9 +2,9 @@
 
 import csv
 import logging
+from collections.abc import Callable
 from datetime import timedelta
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
 
 import requests
 
@@ -34,7 +34,7 @@ class CrossrefSource(BaseSource):
     def enabled(self) -> bool:
         return self.config.enabled
 
-    def fetch(self, days_back: int | None = None) -> List[CandidateWork]:
+    def fetch(self, days_back: int | None = None) -> list[CandidateWork]:
         """Fetch Crossref works from journals in the ISSN whitelist."""
         if days_back is None:
             days_back = self.config.days_back
@@ -50,7 +50,7 @@ class CrossrefSource(BaseSource):
         logger.info("Using ISSN whitelist with %d journals", len(issns))
         return self._fetch_by_issn(days_back, issns, max_results)
 
-    def _load_issn_whitelist(self) -> List[str]:
+    def _load_issn_whitelist(self) -> list[str]:
         """Load ISSN whitelist from CSV file."""
         # Look for whitelist in data directory
         path = Path(__file__).parents[3] / "data" / "journal_whitelist.csv"
@@ -58,7 +58,7 @@ class CrossrefSource(BaseSource):
             logger.warning("Journal whitelist not found: %s", path)
             return []
 
-        issns: List[str] = []
+        issns: list[str] = []
         try:
             with path.open("r", encoding="utf-8") as f:
                 reader = csv.DictReader(f)
@@ -76,9 +76,9 @@ class CrossrefSource(BaseSource):
     def _fetch_by_issn(
         self,
         days_back: int,
-        issns: List[str],
+        issns: list[str],
         max_results: int,
-    ) -> List[CandidateWork]:
+    ) -> list[CandidateWork]:
         """Fetch works from specific journals by ISSN."""
         since = utc_today_start() - timedelta(days=days_back)
 
@@ -117,10 +117,10 @@ class CrossrefSource(BaseSource):
 
     def _fetch_paginated(
         self,
-        params: Dict,
+        params: dict,
         max_results: int,
-        stat_key_fn: Optional[Callable[[dict], str]] = None,
-    ) -> tuple[List[CandidateWork], Dict[str, int]]:
+        stat_key_fn: Callable[[dict], str] | None = None,
+    ) -> tuple[list[CandidateWork], dict[str, int]]:
         """Fetch works with pagination.
 
         Args:
@@ -132,8 +132,8 @@ class CrossrefSource(BaseSource):
             Tuple of (results list, statistics dict).
         """
         url = "https://api.crossref.org/works"
-        results: List[CandidateWork] = []
-        stats: Dict[str, int] = {}
+        results: list[CandidateWork] = []
+        stats: dict[str, int] = {}
         offset = 0
 
         while len(results) < max_results:
@@ -170,8 +170,8 @@ class CrossrefSource(BaseSource):
     def _parse_crossref_item(
         self,
         item: dict,
-        venue_override: Optional[str] = None,
-    ) -> Optional[CandidateWork]:
+        venue_override: str | None = None,
+    ) -> CandidateWork | None:
         """Parse Crossref API item to CandidateWork."""
         title = clean_title((item.get("title") or [""])[0])
         if not title:

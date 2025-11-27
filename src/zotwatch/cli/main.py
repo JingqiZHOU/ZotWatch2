@@ -3,7 +3,6 @@
 import logging
 from datetime import timedelta
 from pathlib import Path
-from typing import List, Optional
 
 import click
 from dotenv import load_dotenv
@@ -53,7 +52,7 @@ def _get_embedding_cache(base_dir: Path) -> EmbeddingCache:
 @click.option("-v", "--verbose", is_flag=True, help="Enable debug logging")
 @click.version_option(version=__version__, prog_name="zotwatch")
 @click.pass_context
-def cli(ctx: click.Context, base_dir: Optional[str], verbose: bool) -> None:
+def cli(ctx: click.Context, base_dir: str | None, verbose: bool) -> None:
     """ZotWatch - Personalized academic paper recommendations."""
     ctx.ensure_object(dict)
 
@@ -290,7 +289,7 @@ def watch(
         logger.info("Removed %d candidates without abstracts", removed_no_abstract)
 
     # Interest-based featured selection (optional)
-    featured_works: List[FeaturedWork] = []
+    featured_works: list[FeaturedWork] = []
     interests_config = settings.scoring.interests
 
     if interests_config.enabled and interests_config.description.strip():
@@ -437,7 +436,7 @@ def watch(
         click.echo("Pushed recommendations to Zotero")
 
 
-def _filter_recent(ranked: List[RankedWork], *, days: int) -> List[RankedWork]:
+def _filter_recent(ranked: list[RankedWork], *, days: int) -> list[RankedWork]:
     """Filter to recent papers only."""
     if days <= 0:
         return ranked
@@ -449,12 +448,12 @@ def _filter_recent(ranked: List[RankedWork], *, days: int) -> List[RankedWork]:
     return kept
 
 
-def _limit_preprints(ranked: List[RankedWork], *, max_ratio: float) -> List[RankedWork]:
+def _limit_preprints(ranked: list[RankedWork], *, max_ratio: float) -> list[RankedWork]:
     """Limit preprints to a maximum ratio."""
     if not ranked or max_ratio <= 0:
         return ranked
     preprint_sources = {"arxiv", "biorxiv", "medrxiv"}
-    filtered: List[RankedWork] = []
+    filtered: list[RankedWork] = []
     preprint_count = 0
     for work in ranked:
         source = work.source.lower()

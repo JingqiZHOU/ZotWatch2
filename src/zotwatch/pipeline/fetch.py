@@ -2,7 +2,6 @@
 
 import logging
 from pathlib import Path
-from typing import List
 
 from zotwatch.config.settings import Settings
 from zotwatch.core.models import CandidateWork
@@ -11,7 +10,7 @@ from zotwatch.sources.base import get_enabled_sources
 logger = logging.getLogger(__name__)
 
 
-def fetch_candidates(settings: Settings) -> List[CandidateWork]:
+def fetch_candidates(settings: Settings) -> list[CandidateWork]:
     """Fetch candidates from all enabled sources.
 
     Args:
@@ -20,7 +19,7 @@ def fetch_candidates(settings: Settings) -> List[CandidateWork]:
     Returns:
         List of candidate works from all sources
     """
-    results: List[CandidateWork] = []
+    results: list[CandidateWork] = []
 
     for source in get_enabled_sources(settings):
         try:
@@ -41,7 +40,7 @@ class CandidateFetcher:
         self.settings = settings
         self.base_dir = Path(base_dir)
 
-    def fetch_all(self) -> List[CandidateWork]:
+    def fetch_all(self) -> list[CandidateWork]:
         """Fetch all candidates."""
         return fetch_candidates(self.settings)
 

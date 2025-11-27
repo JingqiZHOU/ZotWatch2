@@ -1,19 +1,16 @@
 """OpenRouter LLM provider implementation."""
 
 import logging
-from typing import List, Optional
-
-import requests
 
 from zotwatch.config.settings import LLMConfig
+from zotwatch.core.protocols import LLMResponse
 
-from .base import BaseLLMProvider, LLMResponse
-from .retry import with_retry
+from .http_client import BaseHTTPLLMClient
 
 logger = logging.getLogger(__name__)
 
 
-class OpenRouterClient(BaseLLMProvider):
+class OpenRouterClient(BaseHTTPLLMClient):
     """OpenRouter API client supporting multiple LLM providers."""
 
     BASE_URL = "https://openrouter.ai/api/v1"
@@ -27,15 +24,27 @@ class OpenRouterClient(BaseLLMProvider):
         timeout: float = 60.0,
         max_retries: int = 3,
         backoff_factor: float = 2.0,
-    ):
-        self.api_key = api_key
-        self.default_model = default_model
+    ) -> None:
+        """Initialize OpenRouter client.
+
+        Args:
+            api_key: OpenRouter API key.
+            default_model: Default model to use.
+            site_url: Site URL for OpenRouter attribution.
+            app_name: Application name for OpenRouter attribution.
+            timeout: Request timeout in seconds.
+            max_retries: Maximum retry attempts.
+            backoff_factor: Exponential backoff factor.
+        """
+        super().__init__(
+            api_key=api_key,
+            default_model=default_model,
+            timeout=timeout,
+            max_retries=max_retries,
+            backoff_factor=backoff_factor,
+        )
         self.site_url = site_url
         self.app_name = app_name
-        self.timeout = timeout
-        self.max_retries = max_retries
-        self.backoff_factor = backoff_factor
-        self._session = requests.Session()
 
     @classmethod
     def from_config(cls, config: LLMConfig) -> "OpenRouterClient":
@@ -51,63 +60,42 @@ class OpenRouterClient(BaseLLMProvider):
     def name(self) -> str:
         return "openrouter"
 
-    def complete(
+    def _build_headers(self) -> dict[str, str]:
+        """Build HTTP headers with OpenRouter-specific headers."""
+        return {
+            "Authorization": f"Bearer {self.api_key}",
+            "HTTP-Referer": self.site_url,
+            "X-Title": self.app_name,
+            "Content-Type": "application/json",
+        }
+
+    def _build_payload(
         self,
         prompt: str,
-        *,
-        model: Optional[str] = None,
-        max_tokens: int = 1024,
-        temperature: float = 0.3,
-    ) -> LLMResponse:
-        """Send completion request to OpenRouter."""
-        return self._complete_with_retry(
-            prompt,
-            model=model,
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
+        model: str,
+        max_tokens: int,
+        temperature: float,
+    ) -> dict:
+        """Build JSON payload for OpenRouter API."""
+        return {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
 
-    @with_retry(max_attempts=3, backoff_factor=2.0, initial_delay=1.0)
-    def _complete_with_retry(
-        self,
-        prompt: str,
-        *,
-        model: Optional[str] = None,
-        max_tokens: int = 1024,
-        temperature: float = 0.3,
-    ) -> LLMResponse:
-        """Internal completion with retry logic."""
-        use_model = model or self.default_model
-
-        response = self._session.post(
-            f"{self.BASE_URL}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "HTTP-Referer": self.site_url,
-                "X-Title": self.app_name,
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": use_model,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-            },
-            timeout=self.timeout,
-        )
-        response.raise_for_status()
-
-        data = response.json()
+    def _extract_response(self, data: dict, model: str) -> LLMResponse:
+        """Extract LLMResponse from OpenRouter API response."""
         content = data["choices"][0]["message"]["content"]
         tokens_used = data.get("usage", {}).get("total_tokens", 0)
 
         return LLMResponse(
             content=content,
-            model=data.get("model", use_model),
+            model=data.get("model", model),
             tokens_used=tokens_used,
         )
 
-    def available_models(self) -> List[str]:
+    def available_models(self) -> list[str]:
         """Get available models from OpenRouter."""
         try:
             response = self._session.get(

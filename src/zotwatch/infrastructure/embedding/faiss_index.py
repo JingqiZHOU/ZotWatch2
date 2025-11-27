@@ -2,7 +2,6 @@
 
 import logging
 from pathlib import Path
-from typing import Tuple
 
 import faiss
 import numpy as np
@@ -20,7 +19,7 @@ class FaissIndex:
         self.index = index or faiss.IndexFlatIP(dim)
 
     @classmethod
-    def from_vectors(cls, vectors: np.ndarray) -> Tuple["FaissIndex", np.ndarray]:
+    def from_vectors(cls, vectors: np.ndarray) -> tuple["FaissIndex", np.ndarray]:
         """Create index from vector array."""
         if vectors.ndim != 2:
             raise ValueError("Vectors must be a 2D array")
@@ -44,7 +43,7 @@ class FaissIndex:
             raise ValueError("Loaded FAISS index is empty")
         return cls(index.d, index)
 
-    def search(self, vectors: np.ndarray, top_k: int = 10) -> Tuple[np.ndarray, np.ndarray]:
+    def search(self, vectors: np.ndarray, top_k: int = 10) -> tuple[np.ndarray, np.ndarray]:
         """Search for similar vectors."""
         if vectors.ndim == 1:
             vectors = vectors.reshape(1, -1)

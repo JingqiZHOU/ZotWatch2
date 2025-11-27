@@ -18,13 +18,12 @@ Supported publishers:
 import html
 import logging
 import re
-from typing import Dict, Optional
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
 # Publisher patterns: domain -> extraction configuration
-PUBLISHER_CONFIGS: Dict[str, Dict] = {
+PUBLISHER_CONFIGS: dict[str, dict] = {
     "acm": {
         "domains": ["dl.acm.org"],
         "meta_tags": [
@@ -237,7 +236,7 @@ def _clean_html_text(text: str) -> str:
     return text
 
 
-def _extract_meta_tag(html_content: str, attr_name: str, attr_value: str) -> Optional[str]:
+def _extract_meta_tag(html_content: str, attr_name: str, attr_value: str) -> str | None:
     """Extract content from a meta tag.
 
     Args:
@@ -263,7 +262,7 @@ def _extract_meta_tag(html_content: str, attr_name: str, attr_value: str) -> Opt
     return None
 
 
-def _extract_from_selector(html_content: str, selector_pattern: str) -> Optional[str]:
+def _extract_from_selector(html_content: str, selector_pattern: str) -> str | None:
     """Extract abstract using regex selector pattern.
 
     Args:
@@ -283,7 +282,7 @@ def _extract_from_selector(html_content: str, selector_pattern: str) -> Optional
     return None
 
 
-def extract_abstract(html_content: str, url: str) -> Optional[str]:
+def extract_abstract(html_content: str, url: str) -> str | None:
     """Extract abstract using publisher-specific rules.
 
     This function tries rule-based extraction first:
@@ -408,7 +407,7 @@ class PublisherExtractor:
         """
         self.use_llm_fallback = use_llm_fallback
 
-    def extract(self, html_content: str, url: str) -> Optional[str]:
+    def extract(self, html_content: str, url: str) -> str | None:
         """Extract abstract using rules.
 
         Args:

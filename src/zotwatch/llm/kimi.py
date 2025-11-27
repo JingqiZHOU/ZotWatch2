@@ -1,19 +1,16 @@
 """Kimi (Moonshot AI) LLM provider implementation."""
 
 import logging
-from typing import List, Optional
-
-import requests
 
 from zotwatch.config.settings import LLMConfig
+from zotwatch.core.protocols import LLMResponse
 
-from .base import BaseLLMProvider, LLMResponse
-from .retry import with_retry
+from .http_client import BaseHTTPLLMClient
 
 logger = logging.getLogger(__name__)
 
 
-class KimiClient(BaseLLMProvider):
+class KimiClient(BaseHTTPLLMClient):
     """Kimi (Moonshot AI) API client.
 
     Supports both thinking models (kimi-k2-thinking-*) and standard models.
@@ -32,22 +29,23 @@ class KimiClient(BaseLLMProvider):
         timeout: float = 120.0,
         max_retries: int = 3,
         backoff_factor: float = 2.0,
-    ):
+    ) -> None:
         """Initialize Kimi client.
 
         Args:
             api_key: Moonshot API key.
             default_model: Default model to use.
-            timeout: Request timeout in seconds.
+            timeout: Request timeout in seconds (higher for thinking models).
             max_retries: Maximum retry attempts.
             backoff_factor: Exponential backoff factor.
         """
-        self.api_key = api_key
-        self.default_model = default_model
-        self.timeout = timeout
-        self.max_retries = max_retries
-        self.backoff_factor = backoff_factor
-        self._session = requests.Session()
+        super().__init__(
+            api_key=api_key,
+            default_model=default_model,
+            timeout=timeout,
+            max_retries=max_retries,
+            backoff_factor=backoff_factor,
+        )
 
     @classmethod
     def from_config(cls, config: LLMConfig) -> "KimiClient":
@@ -68,79 +66,63 @@ class KimiClient(BaseLLMProvider):
         """Check if the model is a thinking model."""
         return any(model.startswith(prefix) for prefix in self.THINKING_MODEL_PREFIXES)
 
-    def complete(
+    def _adjust_parameters(
         self,
-        prompt: str,
-        *,
-        model: Optional[str] = None,
-        max_tokens: int = 1024,
-        temperature: float = 0.3,
-    ) -> LLMResponse:
-        """Send completion request to Kimi API.
+        model: str,
+        max_tokens: int,
+        temperature: float,
+    ) -> tuple[str, int, float]:
+        """Adjust parameters for thinking models.
 
-        For thinking models, temperature is forced to 1.0 and max_tokens is
-        ensured to be at least 16000 for proper reasoning output.
+        Thinking models require temperature=1.0 and max_tokens >= 16000.
         """
-        return self._complete_with_retry(
-            prompt,
-            model=model,
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
-
-    @with_retry(max_attempts=3, backoff_factor=2.0, initial_delay=1.0)
-    def _complete_with_retry(
-        self,
-        prompt: str,
-        *,
-        model: Optional[str] = None,
-        max_tokens: int = 1024,
-        temperature: float = 0.3,
-    ) -> LLMResponse:
-        """Internal completion with retry logic."""
-        use_model = model or self.default_model
-
-        # Adjust parameters for thinking models
-        if self._is_thinking_model(use_model):
-            temperature = 1.0  # Thinking models require temperature=1.0
+        if self._is_thinking_model(model):
+            temperature = 1.0
             if max_tokens < self.MIN_THINKING_TOKENS:
                 max_tokens = self.MIN_THINKING_TOKENS
                 logger.debug(
                     "Increased max_tokens to %d for thinking model %s",
                     max_tokens,
-                    use_model,
+                    model,
                 )
+        return model, max_tokens, temperature
 
-        response = self._session.post(
-            f"{self.BASE_URL}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": use_model,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-            },
-            timeout=self.timeout,
-        )
-        response.raise_for_status()
+    def _build_headers(self) -> dict[str, str]:
+        """Build HTTP headers for Kimi API."""
+        return {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
 
-        data = response.json()
+    def _build_payload(
+        self,
+        prompt: str,
+        model: str,
+        max_tokens: int,
+        temperature: float,
+    ) -> dict:
+        """Build JSON payload for Kimi API."""
+        return {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+
+    def _extract_response(self, data: dict, model: str) -> LLMResponse:
+        """Extract LLMResponse from Kimi API response."""
         message = data["choices"][0]["message"]
-
         # Extract content, ignoring reasoning_content for thinking models
         content = message.get("content", "")
         tokens_used = data.get("usage", {}).get("total_tokens", 0)
 
         return LLMResponse(
             content=content,
-            model=data.get("model", use_model),
+            model=data.get("model", model),
             tokens_used=tokens_used,
         )
 
-    def available_models(self) -> List[str]:
+    def available_models(self) -> list[str]:
         """List available Kimi models."""
         # Kimi doesn't have a models endpoint, return known models
         return [

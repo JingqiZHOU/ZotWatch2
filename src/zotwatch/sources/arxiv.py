@@ -2,7 +2,6 @@
 
 import logging
 from datetime import timedelta
-from typing import Dict, List
 
 import feedparser
 import requests
@@ -33,7 +32,7 @@ class ArxivSource(BaseSource):
     def enabled(self) -> bool:
         return self.config.enabled
 
-    def fetch(self, days_back: int | None = None) -> List[CandidateWork]:
+    def fetch(self, days_back: int | None = None) -> list[CandidateWork]:
         """Fetch arXiv entries, filtering by primary category."""
         if days_back is None:
             days_back = self.config.days_back
@@ -73,8 +72,8 @@ class ArxivSource(BaseSource):
         resp.raise_for_status()
         feed = feedparser.parse(resp.text)
 
-        results: List[CandidateWork] = []
-        category_counts: Dict[str, int] = {}  # Count by category
+        results: list[CandidateWork] = []
+        category_counts: dict[str, int] = {}  # Count by category
         skipped_count = 0
 
         for entry in feed.entries:

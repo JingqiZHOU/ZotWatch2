@@ -2,7 +2,6 @@
 
 import logging
 from dataclasses import dataclass
-from typing import List, Tuple
 
 import voyageai
 
@@ -34,9 +33,9 @@ class VoyageReranker:
     def rerank(
         self,
         query: str,
-        documents: List[str],
+        documents: list[str],
         top_k: int = 5,
-    ) -> List[Tuple[int, float]]:
+    ) -> list[tuple[int, float]]:
         """Rerank documents by relevance to query.
 
         Args:
@@ -84,9 +83,9 @@ class VoyageReranker:
     def rerank_with_details(
         self,
         query: str,
-        documents: List[str],
+        documents: list[str],
         top_k: int = 5,
-    ) -> List[RerankResult]:
+    ) -> list[RerankResult]:
         """Rerank documents and return detailed results.
 
         Args:

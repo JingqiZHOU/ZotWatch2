@@ -10,10 +10,7 @@ from .models import (
     PaperSummary,
 )
 from .protocols import (
-    CandidateSource,
-    LLMProvider,
     LLMResponse,
-    EmbeddingProvider,
     ItemStorage,
     SummaryStorage,
 )
@@ -35,10 +32,7 @@ __all__ = [
     "DetailedAnalysis",
     "PaperSummary",
     # Protocols
-    "CandidateSource",
-    "LLMProvider",
     "LLMResponse",
-    "EmbeddingProvider",
     "ItemStorage",
     "SummaryStorage",
     # Exceptions

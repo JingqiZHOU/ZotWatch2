@@ -2,7 +2,7 @@
 
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 import requests
 
@@ -14,7 +14,7 @@ class HTTPClient:
 
     def __init__(
         self,
-        headers: Optional[Dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
         timeout: float = 30.0,
         max_retries: int = 3,
         backoff_factor: float = 2.0,
@@ -29,8 +29,8 @@ class HTTPClient:
     def get(
         self,
         url: str,
-        params: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
         **kwargs,
     ) -> requests.Response:
         """Make GET request with retry logic."""
@@ -39,8 +39,8 @@ class HTTPClient:
     def post(
         self,
         url: str,
-        json: Optional[Any] = None,
-        headers: Optional[Dict[str, str]] = None,
+        json: Any | None = None,
+        headers: dict[str, str] | None = None,
         **kwargs,
     ) -> requests.Response:
         """Make POST request with retry logic."""

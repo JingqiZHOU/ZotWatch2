@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import yaml
 
@@ -14,7 +14,7 @@ class ConfigLoader:
         self.base_dir = Path(base_dir)
         self.config_path = self.base_dir / "config" / "config.yaml"
 
-    def load(self) -> Dict[str, Any]:
+    def load(self) -> dict[str, Any]:
         """Load and parse configuration file."""
         return _load_yaml(self.config_path)
 
@@ -42,7 +42,7 @@ def _expand_env_vars(data: Any) -> Any:
     return data
 
 
-def _load_yaml(path: Path) -> Dict[str, Any]:
+def _load_yaml(path: Path) -> dict[str, Any]:
     """Load YAML file with environment variable expansion."""
     if not path.exists():
         raise FileNotFoundError(f"Configuration file not found: {path}")

@@ -3,7 +3,6 @@
 import logging
 import re
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Type
 
 from zotwatch.config.settings import Settings
 from zotwatch.core.models import CandidateWork
@@ -32,7 +31,7 @@ class BaseSource(ABC):
         ...
 
     @abstractmethod
-    def fetch(self, days_back: int = 7) -> List[CandidateWork]:
+    def fetch(self, days_back: int = 7) -> list[CandidateWork]:
         """Fetch candidates from this source."""
         ...
 
@@ -44,10 +43,10 @@ class BaseSource(ABC):
 class SourceRegistry:
     """Registry for dynamically discovering and loading sources."""
 
-    _sources: Dict[str, Type[BaseSource]] = {}
+    _sources: dict[str, type[BaseSource]] = {}
 
     @classmethod
-    def register(cls, source_class: Type[BaseSource]) -> Type[BaseSource]:
+    def register(cls, source_class: type[BaseSource]) -> type[BaseSource]:
         """Decorator to register a source."""
         # Get name from class
         _ = object.__new__(source_class)
@@ -56,12 +55,12 @@ class SourceRegistry:
         return source_class
 
     @classmethod
-    def get_source(cls, name: str) -> Optional[Type[BaseSource]]:
+    def get_source(cls, name: str) -> type[BaseSource] | None:
         """Get source class by name."""
         return cls._sources.get(name.lower())
 
     @classmethod
-    def get_enabled_sources(cls, settings: Settings) -> List[BaseSource]:
+    def get_enabled_sources(cls, settings: Settings) -> list[BaseSource]:
         """Return instantiated sources that are enabled in config."""
         enabled = []
         for name, source_class in cls._sources.items():
@@ -71,12 +70,12 @@ class SourceRegistry:
         return enabled
 
     @classmethod
-    def all_sources(cls) -> Dict[str, Type[BaseSource]]:
+    def all_sources(cls) -> dict[str, type[BaseSource]]:
         """Get all registered sources."""
         return cls._sources.copy()
 
 
-def get_enabled_sources(settings: Settings) -> List[BaseSource]:
+def get_enabled_sources(settings: Settings) -> list[BaseSource]:
     """Convenience function to get enabled sources."""
     return SourceRegistry.get_enabled_sources(settings)
 
@@ -108,7 +107,7 @@ _NON_ARTICLE_PATTERNS = [
 _NON_ARTICLE_REGEX = [re.compile(p, re.IGNORECASE) for p in _NON_ARTICLE_PATTERNS]
 
 
-def is_non_article_title(title: str, venue: Optional[str] = None) -> bool:
+def is_non_article_title(title: str, venue: str | None = None) -> bool:
     """Check if title indicates a non-article entry (journal metadata page).
 
     IEEE and other publishers register DOIs for non-article content like:

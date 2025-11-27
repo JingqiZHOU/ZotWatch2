@@ -1,11 +1,16 @@
-"""Protocol definitions for ZotWatch components."""
+"""Protocol definitions for ZotWatch components.
+
+Note: CandidateSource, LLMProvider, and EmbeddingProvider protocols have been
+removed in favor of their ABC counterparts:
+- CandidateSource -> sources.base.BaseSource
+- LLMProvider -> llm.base.BaseLLMProvider
+- EmbeddingProvider -> infrastructure.embedding.base.BaseEmbeddingProvider
+"""
 
 from dataclasses import dataclass
 from typing import Iterable, Protocol, runtime_checkable
 
-import numpy as np
-
-from .models import CandidateWork, PaperSummary, ZoteroItem
+from .models import PaperSummary, ZoteroItem
 
 
 @dataclass
@@ -16,77 +21,6 @@ class LLMResponse:
     model: str
     tokens_used: int
     cached: bool = False
-
-
-@runtime_checkable
-class CandidateSource(Protocol):
-    """Protocol for paper sources (arXiv, Crossref, etc.)."""
-
-    @property
-    def name(self) -> str:
-        """Unique source identifier."""
-        ...
-
-    @property
-    def enabled(self) -> bool:
-        """Whether this source is enabled in config."""
-        ...
-
-    def fetch(self, days_back: int = 7) -> list[CandidateWork]:
-        """Fetch candidates from this source."""
-        ...
-
-    def validate_config(self) -> bool:
-        """Validate source-specific configuration."""
-        ...
-
-
-@runtime_checkable
-class LLMProvider(Protocol):
-    """Protocol for LLM providers."""
-
-    @property
-    def name(self) -> str:
-        """Provider name."""
-        ...
-
-    def complete(
-        self,
-        prompt: str,
-        *,
-        model: str | None = None,
-        max_tokens: int = 1024,
-        temperature: float = 0.3,
-    ) -> LLMResponse:
-        """Generate completion for the given prompt."""
-        ...
-
-    def available_models(self) -> list[str]:
-        """List available models."""
-        ...
-
-
-@runtime_checkable
-class EmbeddingProvider(Protocol):
-    """Protocol for text embedding providers."""
-
-    @property
-    def model_name(self) -> str:
-        """Model identifier."""
-        ...
-
-    @property
-    def dimensions(self) -> int:
-        """Embedding dimensionality."""
-        ...
-
-    def encode(self, texts: list[str]) -> np.ndarray:
-        """Encode texts to embeddings."""
-        ...
-
-    def encode_single(self, text: str) -> np.ndarray:
-        """Encode a single text."""
-        ...
 
 
 @runtime_checkable
@@ -137,9 +71,6 @@ class SummaryStorage(Protocol):
 
 __all__ = [
     "LLMResponse",
-    "CandidateSource",
-    "LLMProvider",
-    "EmbeddingProvider",
     "ItemStorage",
     "SummaryStorage",
 ]

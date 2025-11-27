@@ -1,7 +1,6 @@
 """Featured paper selection based on user interests."""
 
 import logging
-from typing import List
 
 import numpy as np
 
@@ -37,7 +36,7 @@ class FeaturedSelector:
         self.reranker = reranker
         self.interest_refiner = interest_refiner
 
-    def select(self, candidates: List[CandidateWork]) -> List[FeaturedWork]:
+    def select(self, candidates: list[CandidateWork]) -> list[FeaturedWork]:
         """Select featured papers using interest-based reranking.
 
         Pipeline:
@@ -154,9 +153,9 @@ class FeaturedSelector:
 
     def _apply_exclusions(
         self,
-        candidates: List[CandidateWork],
-        exclude_keywords: List[str],
-    ) -> List[CandidateWork]:
+        candidates: list[CandidateWork],
+        exclude_keywords: list[str],
+    ) -> list[CandidateWork]:
         """Filter out candidates matching exclude keywords.
 
         Args:

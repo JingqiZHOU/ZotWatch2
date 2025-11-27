@@ -2,7 +2,7 @@
 
 import logging
 import re
-from typing import Iterable, List, Set
+from collections.abc import Iterable
 
 from rapidfuzz import fuzz
 
@@ -18,9 +18,9 @@ class DedupeEngine:
     def __init__(self, storage: ProfileStorage, title_threshold: float = 0.9):
         self.storage = storage
         self.title_threshold = title_threshold
-        self.existing_doi: Set[str] = set()
-        self.existing_ids: Set[str] = set()
-        self.existing_titles: List[str] = []
+        self.existing_doi: set[str] = set()
+        self.existing_ids: set[str] = set()
+        self.existing_titles: list[str] = []
         self._load_existing()
 
     def _load_existing(self) -> None:
@@ -32,12 +32,12 @@ class DedupeEngine:
                 self.existing_ids.add(_normalize_identifier(item.url))
             self.existing_titles.append(_normalize_title(item.title))
 
-    def filter(self, candidates: Iterable[CandidateWork]) -> List[CandidateWork]:
+    def filter(self, candidates: Iterable[CandidateWork]) -> list[CandidateWork]:
         """Filter out duplicate candidates."""
         source = list(candidates)
-        deduped: List[CandidateWork] = []
-        candidate_titles: List[str] = []
-        seen_keys: Set[str] = set()
+        deduped: list[CandidateWork] = []
+        candidate_titles: list[str] = []
+        seen_keys: set[str] = set()
 
         for work in source:
             key = _normalize_identifier(work.identifier)

@@ -2,43 +2,19 @@
 
 import json
 import logging
-import sqlite3
-import threading
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+
+from zotwatch.infrastructure.cache_base import BaseSQLiteCache
 
 logger = logging.getLogger(__name__)
 
 
-class MetadataCache:
+class MetadataCache(BaseSQLiteCache):
     """Cache for paper metadata from external APIs.
 
     Stores paper abstracts and other metadata with TTL support.
-    Uses SQLite backend similar to EmbeddingCache pattern.
-
-    Thread-safe: uses write lock for concurrent access.
+    Uses SQLite backend with thread-safe write operations.
     """
-
-    def __init__(self, db_path: Path | str) -> None:
-        """Initialize the cache.
-
-        Args:
-            db_path: Path to SQLite database file.
-        """
-        self._db_path = str(db_path)
-        self._conn: sqlite3.Connection | None = None
-        self._write_lock = threading.Lock()  # Protects concurrent writes
-        self._ensure_schema()
-
-    def _connect(self) -> sqlite3.Connection:
-        """Get or create database connection."""
-        if self._conn is None:
-            # Ensure parent directory exists
-            Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
-            self._conn = sqlite3.connect(self._db_path)
-            self._conn.row_factory = sqlite3.Row
-        return self._conn
 
     def _ensure_schema(self) -> None:
         """Create metadata table if not exists."""
@@ -63,7 +39,15 @@ class MetadataCache:
         """)
         conn.commit()
 
-    def get_abstract(self, doi: str) -> Optional[str]:
+    def _get_expires_column(self) -> str:
+        """Return the column name for expiration timestamps."""
+        return "expires_at"
+
+    def _get_table_name(self) -> str:
+        """Return the main table name."""
+        return "paper_metadata"
+
+    def get_abstract(self, doi: str) -> str | None:
         """Get cached abstract for DOI.
 
         Args:
@@ -84,7 +68,7 @@ class MetadataCache:
         row = cur.fetchone()
         return row["abstract"] if row else None
 
-    def get_batch(self, dois: List[str]) -> Dict[str, str]:
+    def get_batch(self, dois: list[str]) -> dict[str, str]:
         """Batch fetch cached abstracts.
 
         Args:
@@ -117,11 +101,11 @@ class MetadataCache:
     def put(
         self,
         doi: str,
-        abstract: Optional[str],
+        abstract: str | None,
         source: str,
-        title: Optional[str] = None,
-        authors: Optional[List[str]] = None,
-        citation_count: Optional[int] = None,
+        title: str | None = None,
+        authors: list[str] | None = None,
+        citation_count: int | None = None,
         ttl_days: int = 30,
     ) -> None:
         """Store paper metadata with TTL (thread-safe).
@@ -152,7 +136,7 @@ class MetadataCache:
 
     def put_batch(
         self,
-        items: List[Tuple[str, Optional[str]]],
+        items: list[tuple[str, str | None]],
         source: str,
         ttl_days: int = 30,
     ) -> None:
@@ -180,26 +164,7 @@ class MetadataCache:
             )
             conn.commit()
 
-    def cleanup_expired(self) -> int:
-        """Remove expired metadata entries.
-
-        Returns:
-            Number of deleted rows.
-        """
-        conn = self._connect()
-        cur = conn.execute(
-            """
-            DELETE FROM paper_metadata
-            WHERE expires_at IS NOT NULL AND expires_at <= datetime('now')
-            """
-        )
-        count = cur.rowcount
-        conn.commit()
-        if count > 0:
-            logger.info("Cleaned up %d expired metadata cache entries", count)
-        return count
-
-    def count(self, source: Optional[str] = None) -> int:
+    def count(self, source: str | None = None) -> int:
         """Count cached metadata entries.
 
         Args:
@@ -217,12 +182,6 @@ class MetadataCache:
         else:
             cur = conn.execute("SELECT COUNT(*) FROM paper_metadata")
         return cur.fetchone()[0]
-
-    def close(self) -> None:
-        """Close database connection."""
-        if self._conn is not None:
-            self._conn.close()
-            self._conn = None
 
 
 __all__ = ["MetadataCache"]

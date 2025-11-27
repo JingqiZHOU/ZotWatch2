@@ -1,7 +1,6 @@
 """Logging configuration for ZotWatch."""
 
 import logging
-from typing import Optional
 
 
 def setup_logging(level: int = logging.INFO, verbose: bool = False) -> None:
@@ -14,7 +13,7 @@ def setup_logging(level: int = logging.INFO, verbose: bool = False) -> None:
     )
 
 
-def get_logger(name: Optional[str] = None) -> logging.Logger:
+def get_logger(name: str | None = None) -> logging.Logger:
     """Get a logger instance."""
     return logging.getLogger(name or "zotwatch")
 

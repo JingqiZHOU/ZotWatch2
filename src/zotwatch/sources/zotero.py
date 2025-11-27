@@ -2,8 +2,8 @@
 
 import logging
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable, List, Optional
 
 import requests
 
@@ -24,7 +24,7 @@ class IngestStats:
     fetched: int = 0
     updated: int = 0
     removed: int = 0
-    last_modified_version: Optional[int] = None
+    last_modified_version: int | None = None
 
 
 class ZoteroClient:
@@ -45,7 +45,7 @@ class ZoteroClient:
         self.base_items_url = f"{self.base_user_url}/items"
         self.polite_delay = settings.zotero.api.polite_delay_ms / 1000
 
-    def iter_items(self, since_version: Optional[int] = None) -> Iterable[requests.Response]:
+    def iter_items(self, since_version: int | None = None) -> Iterable[requests.Response]:
         """Iterate over paginated item responses."""
         params = {
             "limit": self.settings.zotero.api.page_size,
@@ -74,7 +74,7 @@ class ZoteroClient:
             params = {}
             time.sleep(self.polite_delay)
 
-    def fetch_deleted(self, since_version: Optional[int]) -> List[str]:
+    def fetch_deleted(self, since_version: int | None) -> list[str]:
         """Fetch deleted item keys since version."""
         if since_version is None:
             return []
@@ -87,7 +87,7 @@ class ZoteroClient:
         return deleted_items
 
 
-def _parse_next_link(link_header: Optional[str]) -> Optional[str]:
+def _parse_next_link(link_header: str | None) -> str | None:
     """Parse Link header for next page URL."""
     if not link_header:
         return None

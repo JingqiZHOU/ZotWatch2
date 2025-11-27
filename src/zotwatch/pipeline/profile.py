@@ -3,7 +3,6 @@
 import logging
 from collections import Counter
 from pathlib import Path
-from typing import List, Optional
 
 import numpy as np
 
@@ -31,8 +30,8 @@ class ProfileBuilder:
         base_dir: Path | str,
         storage: ProfileStorage,
         settings: Settings,
-        vectorizer: Optional[BaseEmbeddingProvider] = None,
-        embedding_cache: Optional[EmbeddingCache] = None,
+        vectorizer: BaseEmbeddingProvider | None = None,
+        embedding_cache: EmbeddingCache | None = None,
     ):
         """Initialize profile builder.
 
@@ -136,7 +135,7 @@ class ProfileBuilder:
 
         return self.artifacts
 
-    def _summarize(self, items: List[ZoteroItem], vectors: np.ndarray) -> dict:
+    def _summarize(self, items: list[ZoteroItem], vectors: np.ndarray) -> dict:
         """Generate profile summary."""
         authors = Counter()
         venues = Counter()

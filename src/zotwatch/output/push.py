@@ -1,7 +1,7 @@
 """Push recommendations to Zotero."""
 
 import logging
-from typing import Iterable, Optional
+from collections.abc import Iterable
 
 import requests
 
@@ -30,7 +30,7 @@ class ZoteroPusher:
             }
         )
         self.base_url = f"{API_BASE}/users/{settings.zotero.api.user_id}"
-        self._collection_key: Optional[str] = None
+        self._collection_key: str | None = None
 
     def push(self, works: Iterable[RankedWork], note_template: str | None = None) -> None:
         """Push recommendations as notes to Zotero.

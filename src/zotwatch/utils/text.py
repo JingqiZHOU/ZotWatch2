@@ -3,7 +3,8 @@
 import html
 import json
 import re
-from typing import Any, Dict, Iterable, Sequence, TypeVar
+from collections.abc import Iterable, Sequence
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 
@@ -19,7 +20,7 @@ def json_dumps(data: Any, *, indent: int | None = None) -> str:
     return json.dumps(data, ensure_ascii=False, indent=indent, sort_keys=True)
 
 
-def chunk_dict(d: Dict[str, Any], *, max_len: int = 80) -> Dict[str, Any]:
+def chunk_dict(d: dict[str, Any], *, max_len: int = 80) -> dict[str, Any]:
     """Truncate long string values in dictionary."""
     result = {}
     for key, value in d.items():

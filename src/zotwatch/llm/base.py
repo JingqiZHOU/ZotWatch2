@@ -1,7 +1,6 @@
 """LLM provider base classes."""
 
 from abc import ABC, abstractmethod
-from typing import List, Optional
 
 from zotwatch.core.protocols import LLMResponse
 
@@ -20,14 +19,14 @@ class BaseLLMProvider(ABC):
         self,
         prompt: str,
         *,
-        model: Optional[str] = None,
+        model: str | None = None,
         max_tokens: int = 1024,
         temperature: float = 0.3,
     ) -> LLMResponse:
         """Generate completion for the given prompt."""
         ...
 
-    def available_models(self) -> List[str]:
+    def available_models(self) -> list[str]:
         """List available models."""
         return []
 

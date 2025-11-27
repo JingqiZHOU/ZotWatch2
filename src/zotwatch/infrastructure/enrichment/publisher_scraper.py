@@ -11,7 +11,7 @@ Flow: DOI -> doi.org redirect -> HTML -> Rules extract -> (LLM fallback) -> abst
 
 import logging
 import time
-from typing import Callable, Dict, List, Optional
+from collections.abc import Callable
 
 from zotwatch.llm.base import BaseLLMProvider
 
@@ -22,7 +22,7 @@ from .stealth_browser import StealthBrowser
 logger = logging.getLogger(__name__)
 
 # Type alias for result callback: (doi, abstract_or_none) -> None
-ResultCallback = Callable[[str, Optional[str]], None]
+ResultCallback = Callable[[str, str | None], None]
 
 
 class AbstractScraper:
@@ -37,7 +37,7 @@ class AbstractScraper:
 
     def __init__(
         self,
-        llm: Optional[BaseLLMProvider] = None,
+        llm: BaseLLMProvider | None = None,
         rate_limit_delay: float = 1.0,
         timeout: int = 60000,
         max_retries: int = 2,
@@ -67,7 +67,7 @@ class AbstractScraper:
         self.publisher_extractor = PublisherExtractor(use_llm_fallback=use_llm_fallback)
 
         # LLM extractor (optional fallback)
-        self.llm_extractor: Optional[LLMAbstractExtractor] = None
+        self.llm_extractor: LLMAbstractExtractor | None = None
         if llm and use_llm_fallback:
             self.llm_extractor = LLMAbstractExtractor(
                 llm=llm,
@@ -91,8 +91,8 @@ class AbstractScraper:
         self,
         html: str,
         url: str,
-        title: Optional[str] = None,
-    ) -> Optional[str]:
+        title: str | None = None,
+    ) -> str | None:
         """Extract abstract using rules first, then LLM fallback.
 
         Args:
@@ -120,8 +120,8 @@ class AbstractScraper:
     def fetch_abstract(
         self,
         doi: str,
-        title: Optional[str] = None,
-    ) -> Optional[str]:
+        title: str | None = None,
+    ) -> str | None:
         """Fetch abstract for a single DOI.
 
         Args:
@@ -155,9 +155,9 @@ class AbstractScraper:
 
     def fetch_batch(
         self,
-        items: List[Dict[str, str]],
-        on_result: Optional[ResultCallback] = None,
-    ) -> Dict[str, str]:
+        items: list[dict[str, str]],
+        on_result: ResultCallback | None = None,
+    ) -> dict[str, str]:
         """Fetch abstracts for multiple DOIs sequentially.
 
         Args:

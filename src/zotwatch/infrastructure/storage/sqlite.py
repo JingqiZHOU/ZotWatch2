@@ -2,8 +2,8 @@
 
 import json
 import sqlite3
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, List, Optional
 
 from zotwatch.core.models import PaperSummary, ZoteroItem
 
@@ -56,7 +56,7 @@ class ProfileStorage:
     def __init__(self, path: Path | str):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn: Optional[sqlite3.Connection] = None
+        self._conn: sqlite3.Connection | None = None
 
     def connect(self) -> sqlite3.Connection:
         """Get or create database connection."""
@@ -79,7 +79,7 @@ class ProfileStorage:
 
     # Metadata helpers
 
-    def get_metadata(self, key: str) -> Optional[str]:
+    def get_metadata(self, key: str) -> str | None:
         """Get metadata value by key."""
         cur = self.connect().execute("SELECT value FROM metadata WHERE key = ?", (key,))
         row = cur.fetchone()
@@ -93,7 +93,7 @@ class ProfileStorage:
         )
         self.connect().commit()
 
-    def last_modified_version(self) -> Optional[int]:
+    def last_modified_version(self) -> int | None:
         """Get last modified version from Zotero sync."""
         value = self.get_metadata("last_modified_version")
         return int(value) if value else None
@@ -104,7 +104,7 @@ class ProfileStorage:
 
     # Item helpers
 
-    def upsert_item(self, item: ZoteroItem, content_hash: Optional[str] = None) -> None:
+    def upsert_item(self, item: ZoteroItem, content_hash: str | None = None) -> None:
         """Insert or update item."""
         data = (
             item.key,
@@ -158,13 +158,13 @@ class ProfileStorage:
         for row in cur:
             yield _row_to_item(row)
 
-    def get_item(self, key: str) -> Optional[ZoteroItem]:
+    def get_item(self, key: str) -> ZoteroItem | None:
         """Get item by key."""
         cur = self.connect().execute("SELECT * FROM items WHERE key = ?", (key,))
         row = cur.fetchone()
         return _row_to_item(row) if row else None
 
-    def get_all_items(self) -> List[ZoteroItem]:
+    def get_all_items(self) -> list[ZoteroItem]:
         """Get all items as a list."""
         return list(self.iter_items())
 
@@ -183,7 +183,7 @@ class ProfileStorage:
 
     # Summary helpers
 
-    def get_summary(self, paper_id: str) -> Optional[PaperSummary]:
+    def get_summary(self, paper_id: str) -> PaperSummary | None:
         """Get cached summary by paper ID."""
         cur = self.connect().execute(
             "SELECT * FROM summaries WHERE paper_id = ?",

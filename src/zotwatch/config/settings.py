@@ -1,7 +1,6 @@
 """Configuration settings models."""
 
 from pathlib import Path
-from typing import Dict, List
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -47,7 +46,7 @@ class ArxivConfig(BaseModel):
     """arXiv source configuration."""
 
     enabled: bool = True
-    categories: List[str] = Field(default_factory=lambda: ["cs.LG"])
+    categories: list[str] = Field(default_factory=lambda: ["cs.LG"])
     days_back: int = 7
     max_results: int = 500
 

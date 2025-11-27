@@ -2,7 +2,6 @@
 
 import logging
 import re
-from typing import Optional
 
 from zotwatch.llm.base import BaseLLMProvider
 
@@ -70,7 +69,7 @@ class LLMAbstractExtractor:
         html = re.sub(r"\s+", " ", html)
         return html[: self.max_html_chars]
 
-    def _extract_abstract_section(self, html: str) -> Optional[str]:
+    def _extract_abstract_section(self, html: str) -> str | None:
         """Try to extract the abstract section from HTML.
 
         Strategy (in order of preference):
@@ -138,7 +137,7 @@ class LLMAbstractExtractor:
 
         return None
 
-    def extract(self, html: str, title: Optional[str] = None) -> Optional[str]:
+    def extract(self, html: str, title: str | None = None) -> str | None:
         """Extract abstract from HTML content.
 
         Args:

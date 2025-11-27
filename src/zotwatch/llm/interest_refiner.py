@@ -3,7 +3,6 @@
 import json
 import logging
 import re
-from typing import Optional
 
 from zotwatch.core.models import RefinedInterests
 
@@ -19,7 +18,7 @@ class InterestRefiner:
     def __init__(
         self,
         llm: BaseLLMProvider,
-        model: Optional[str] = None,
+        model: str | None = None,
     ):
         self.llm = llm
         self.model = model

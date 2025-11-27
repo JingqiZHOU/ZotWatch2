@@ -2,7 +2,6 @@
 
 import json
 import logging
-from typing import List, Optional
 
 from zotwatch.core.models import (
     BulletSummary,
@@ -25,8 +24,8 @@ class PaperSummarizer:
     def __init__(
         self,
         llm: BaseLLMProvider,
-        storage: Optional[ProfileStorage] = None,
-        model: Optional[str] = None,
+        storage: ProfileStorage | None = None,
+        model: str | None = None,
     ):
         self.llm = llm
         self.storage = storage
@@ -131,11 +130,11 @@ class PaperSummarizer:
 
     def summarize_batch(
         self,
-        works: List[RankedWork],
+        works: list[RankedWork],
         *,
         force: bool = False,
-        limit: Optional[int] = None,
-    ) -> List[PaperSummary]:
+        limit: int | None = None,
+    ) -> list[PaperSummary]:
         """Generate summaries for multiple papers."""
         if limit:
             works = works[:limit]
