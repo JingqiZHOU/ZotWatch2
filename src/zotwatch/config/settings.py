@@ -40,9 +40,7 @@ class CrossRefConfig(BaseModel):
     enabled: bool = True
     mailto: str = "you@example.com"
     days_back: int = 7
-    publishers: List[str] = Field(default_factory=list)
     max_results: int = 500
-    use_issn_whitelist: bool = False  # Use ISSN whitelist instead of publisher filter
 
 
 class ArxivConfig(BaseModel):

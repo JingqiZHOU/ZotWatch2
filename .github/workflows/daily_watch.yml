@@ -1,28 +1,35 @@
-name: Daily Watch & RSS
+name: Daily Watch & Deploy
 
 on:
   schedule:
     - cron: "5 22 * * *"  # UTC 22:05 = 北京时间 6:05
   workflow_dispatch:  # 支持手动触发
 
+# Allow one concurrent deployment
+concurrency:
+  group: "deploy-zotwatch"
+  cancel-in-progress: true
+
 jobs:
   watch:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pages: write
-      id-token: write
+      contents: read
 
     env:
-      # Required
+      # ZotWatch Required
       ZOTERO_API_KEY: ${{ secrets.ZOTERO_API_KEY }}
       ZOTERO_USER_ID: ${{ secrets.ZOTERO_USER_ID }}
       VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
-      # Optional
+      # ZotWatch Optional
       CROSSREF_MAILTO: ${{ secrets.CROSSREF_MAILTO }}
-      SEMANTIC_SCHOLAR_API_KEY: ${{ secrets.SEMANTIC_SCHOLAR_API_KEY }}
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+      # Deploy settings - CHANGE THESE TO YOUR VALUES
+      GIT_USER_NAME: 'Yan Tang'
+      GIT_USER_EMAIL: '360383464@qq.com'
+      TARGET_REPOSITORY: 'kenanking/kenanking.github.io'
+      DEPLOY_SUBDIR: 'zotwatch'
+      TIMEZONE: 'Asia/Shanghai'
 
     steps:
       - name: Checkout repository
@@ -51,34 +58,80 @@ jobs:
             profile-${{ hashFiles('config/config.yaml') }}-
             profile-
 
-      # Cache Playwright browsers
-      - name: Cache Playwright browsers
+      # Cache Camoufox browser
+      - name: Cache Camoufox browser
         uses: actions/cache@v4
         with:
-          path: ~/.cache/ms-playwright
-          key: playwright-firefox-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
+          path: ~/.camoufox
+          key: camoufox-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
           restore-keys: |
-            playwright-firefox-${{ runner.os }}-
+            camoufox-${{ runner.os }}-
 
       - name: Install dependencies
         run: uv sync
 
-      - name: Install Playwright Firefox
-        run: uv run playwright install firefox --with-deps
+      - name: Install Camoufox browser
+        run: uv run python -m camoufox fetch
 
       - name: Run ZotWatch
         run: uv run zotwatch watch --top 30
 
-      # Deploy to GitHub Pages
+      # Deploy to external public repository
       - name: Prepare Pages
         run: |
           mkdir -p public
           cp -r reports/* public/ || true
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./public
+      - name: Setup Deploy Private Key
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh/
+          echo "$DEPLOY_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
 
-      - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v4
+      - name: Setup Git Config
+        run: |
+          git config --global user.name "${{ env.GIT_USER_NAME }}"
+          git config --global user.email "${{ env.GIT_USER_EMAIL }}"
+          git config --global init.defaultBranch main
+
+      - name: Deploy to GitHub Repository
+        run: |
+          # Clone existing repository
+          git clone --depth 1 git@github.com:${{ env.TARGET_REPOSITORY }}.git deploy_repo
+          cd deploy_repo
+
+          # Ensure zotwatch subdirectory exists (preserve historical reports)
+          mkdir -p ${{ env.DEPLOY_SUBDIR }}
+
+          # Copy new reports (overwrites same-dated reports, preserves historical ones)
+          cp ../public/report-*.html ${{ env.DEPLOY_SUBDIR }}/ 2>/dev/null || true
+
+          # Overwrite feed.rss with latest version
+          cp ../public/feed.rss ${{ env.DEPLOY_SUBDIR }}/ 2>/dev/null || true
+
+          # Generate index.html based on all reports (historical + new)
+          LATEST=$(ls -t ${{ env.DEPLOY_SUBDIR }}/report-*.html 2>/dev/null | head -1 | xargs -r basename || echo "")
+          if [ -n "$LATEST" ]; then
+            cat > ${{ env.DEPLOY_SUBDIR }}/index.html << EOF
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta http-equiv="refresh" content="0; url=$LATEST">
+            <title>ZotWatch - Redirecting...</title>
+          </head>
+          <body>
+            <p>Redirecting to <a href="$LATEST">latest report</a>...</p>
+          </body>
+          </html>
+          EOF
+          fi
+
+          # Commit and push
+          git add .
+          export TZ=${{ env.TIMEZONE }}
+          git commit -m "ZotWatch report updated: $(date '+%Y-%m-%d %H:%M:%S %Z')" || echo "No changes to commit"
+          git push origin main

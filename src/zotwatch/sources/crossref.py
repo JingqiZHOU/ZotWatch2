@@ -14,19 +14,6 @@ from zotwatch.utils.datetime import utc_today_start
 
 from .base import BaseSource, SourceRegistry, clean_html, clean_title, is_non_article_title, parse_date
 
-# Crossref member IDs for major publishers (aligned with OpenAlex publisher list)
-# Verified via https://api.crossref.org/members?query=<name> and DOI prefix lookups
-MEMBER_IDS: Dict[str, int] = {
-    "Institute of Electrical and Electronics Engineers": 263,  # IEEE
-    "Springer Nature": 297,  # Springer Science and Business Media LLC
-    "Elsevier BV": 78,
-    "SPIE": 189,  # SPIE-Intl Soc Optical Eng (prefix 10.1117)
-    "Wiley": 311,
-    "Taylor & Francis": 301,  # Informa UK Limited
-    "Multidisciplinary Digital Publishing Institute": 1968,  # MDPI AG
-    "Frontiers Media": 1965,  # Frontiers Media SA
-}
-
 logger = logging.getLogger(__name__)
 
 
@@ -48,26 +35,20 @@ class CrossrefSource(BaseSource):
         return self.config.enabled
 
     def fetch(self, days_back: int | None = None) -> List[CandidateWork]:
-        """Fetch Crossref works with publisher filtering and abstract requirement."""
+        """Fetch Crossref works from journals in the ISSN whitelist."""
         if days_back is None:
             days_back = self.config.days_back
 
         max_results = self.config.max_results
 
-        # Use ISSN whitelist if enabled
-        if self.config.use_issn_whitelist:
-            issns = self._load_issn_whitelist()
-            if issns:
-                logger.info("Using ISSN whitelist with %d journals", len(issns))
-                return self._fetch_by_issn(days_back, issns, max_results)
+        # Load ISSN whitelist
+        issns = self._load_issn_whitelist()
+        if not issns:
+            logger.warning("No ISSNs in whitelist, skipping Crossref fetch")
+            return []
 
-        # Fall back to publisher filter
-        member_ids = self._get_member_ids()
-        if member_ids:
-            logger.info("Filtering by publishers: %s", ", ".join(self.config.publishers))
-            return self._fetch_with_filters(days_back, member_ids, max_results)
-
-        return self._fetch_general(days_back)
+        logger.info("Using ISSN whitelist with %d journals", len(issns))
+        return self._fetch_by_issn(days_back, issns, max_results)
 
     def _load_issn_whitelist(self) -> List[str]:
         """Load ISSN whitelist from CSV file."""
@@ -134,16 +115,6 @@ class CrossrefSource(BaseSource):
 
         return results
 
-    def _get_member_ids(self) -> List[int]:
-        """Get Crossref member IDs for configured publishers."""
-        member_ids = []
-        for name in self.config.publishers:
-            if name in MEMBER_IDS:
-                member_ids.append(MEMBER_IDS[name])
-            else:
-                logger.warning("Unknown publisher '%s', skipping", name)
-        return member_ids
-
     def _fetch_paginated(
         self,
         params: Dict,
@@ -195,74 +166,6 @@ class CrossrefSource(BaseSource):
                 break
 
         return results, stats
-
-    def _fetch_with_filters(
-        self,
-        days_back: int,
-        member_ids: List[int],
-        max_results: int,
-    ) -> List[CandidateWork]:
-        """Fetch works from specific publishers with abstract requirement."""
-        since = utc_today_start() - timedelta(days=days_back)
-
-        # Build filter string with member IDs (OR logic) and abstract requirement
-        member_filter = ",".join(f"member:{m}" for m in member_ids)
-        filter_str = f"from-created-date:{since.date().isoformat()},{member_filter},has-abstract:true"
-
-        params = {
-            "filter": filter_str,
-            "sort": "created",
-            "order": "desc",
-            "rows": min(200, max_results),
-            "mailto": self.config.mailto,
-            "select": "DOI,title,author,abstract,container-title,created,URL,type,is-referenced-by-count,publisher",
-        }
-
-        logger.info(
-            "Fetching Crossref works since %s (max %d, has-abstract:true)",
-            since.date(),
-            max_results,
-        )
-
-        results, publisher_counts = self._fetch_paginated(
-            params,
-            max_results,
-            stat_key_fn=lambda item: item.get("publisher", "Unknown"),
-        )
-
-        logger.info("Fetched %d Crossref works with abstracts", len(results))
-        if publisher_counts:
-            for pub, count in sorted(publisher_counts.items(), key=lambda x: -x[1]):
-                logger.info("  - %s: %d articles", pub, count)
-
-        return results
-
-    def _fetch_general(self, days_back: int) -> List[CandidateWork]:
-        """Fetch general Crossref works."""
-        since = utc_today_start() - timedelta(days=days_back)
-        url = "https://api.crossref.org/works"
-        params = {
-            "filter": f"from-created-date:{since.date().isoformat()}",
-            "sort": "created",
-            "order": "desc",
-            "rows": 200,
-            "mailto": self.config.mailto,
-            "select": "DOI,title,author,abstract,container-title,created,URL,type,is-referenced-by-count",
-        }
-
-        logger.info("Fetching Crossref works since %s", since.date())
-        resp = self.session.get(url, params=params, timeout=30)
-        resp.raise_for_status()
-        message = resp.json().get("message", {})
-
-        results = []
-        for item in message.get("items", []):
-            work = self._parse_crossref_item(item)
-            if work:
-                results.append(work)
-
-        logger.info("Fetched %d Crossref works", len(results))
-        return results
 
     def _parse_crossref_item(
         self,

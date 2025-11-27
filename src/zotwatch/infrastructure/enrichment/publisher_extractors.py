@@ -109,11 +109,20 @@ PUBLISHER_CONFIGS: Dict[str, Dict] = {
     },
     "taylor_francis": {
         "domains": ["tandfonline.com"],
+        # Taylor & Francis og:description is truncated (~200 chars), try selectors first
+        "selectors_first": True,
         "meta_tags": [
             ("property", "og:description"),
             ("name", "dc.description"),
         ],
         "selectors": [
+            # hlFld-Abstract: div > h2 > p structure (most common T&F layout)
+            r'<div[^>]*class=["\'][^"\']*hlFld-Abstract[^"\']*["\'][^>]*>.*?<p[^>]*>(.*?)</p>',
+            # abstractSection with h2 header then paragraph
+            r'<div[^>]*class=["\'][^"\']*abstractSection[^"\']*["\'][^>]*>.*?<p[^>]*>(.*?)</p>',
+            # abstractInFull with any content before paragraph
+            r'<div[^>]*class=["\'][^"\']*abstractInFull[^"\']*["\'][^>]*>.*?<p[^>]*>(.*?)</p>',
+            # Generic abstract section - capture all content before closing div
             r'<div[^>]*class=["\'][^"\']*abstractSection[^"\']*["\'][^>]*>(.*?)</div>',
         ],
     },
