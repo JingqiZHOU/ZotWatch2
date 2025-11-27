@@ -24,6 +24,7 @@ jobs:
       # ZotWatch Optional
       CROSSREF_MAILTO: ${{ secrets.CROSSREF_MAILTO }}
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
       # Deploy settings - CHANGE THESE TO YOUR VALUES
       GIT_USER_NAME: 'Yan Tang'
       GIT_USER_EMAIL: '360383464@qq.com'

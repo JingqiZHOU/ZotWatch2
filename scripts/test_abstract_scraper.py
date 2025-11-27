@@ -46,6 +46,11 @@ TEST_DOIS: List[Dict[str, str]] = [
         "title": "SAR GAN paper",
         "publisher": "SPIE",
     },
+    {
+        "doi": "10.1080/01431161.2025.2593683",
+        "title": "Taylor & Francis Test",
+        "publisher": "Taylor & Francis",
+    },
 ]
 
 
@@ -62,6 +67,7 @@ def test_publisher_detection():
         ("https://www.mdpi.com/2072-4292/17/3/557", "mdpi"),
         ("https://arxiv.org/abs/2003.08934", "arxiv"),
         ("https://www.nature.com/articles/s41586-024-07487-w", "springer"),
+        ("https://www.tandfonline.com/doi/full/10.1080/01431161.2025.2593683", "taylor_francis"),
         ("https://unknown-publisher.com/paper", "unknown"),
     ]
 
