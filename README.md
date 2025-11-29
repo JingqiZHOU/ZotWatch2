@@ -8,7 +8,10 @@ ZotWatch 是一个基于 Zotero 文库构建个人研究兴趣画像，并持续
 - **智能画像构建**：使用 Voyage AI 向量化条目，支持增量嵌入计算（仅处理新增/变更条目）
 - **多源候选抓取**：支持 Crossref、arXiv 数据源
 - **智能评分排序**：结合语义相似度、时间衰减、引用指标、期刊质量及白名单加分
-- **AI 摘要生成**：通过 OpenRouter API 调用 Claude 等模型，生成结构化论文摘要
+- **兴趣驱动推荐**：基于用户描述的研究兴趣，使用 Voyage Rerank 进行语义重排序
+- **AI 摘要生成**：支持 Kimi (Moonshot AI) 和 OpenRouter (Claude 等) 两种 LLM 提供商
+- **标题翻译**：自动将英文论文标题翻译为中文
+- **研究画像分析**：自动分析文库，生成研究领域分类和洞察
 - **多格式输出**：RSS 订阅、响应式 HTML 报告、推送回 Zotero
 
 ## 快速开始
@@ -31,7 +34,7 @@ python -m camoufox fetch
 
 > **注意**：首次下载约需 1-2 分钟，浏览器文件约 200MB。GitHub Actions 会自动处理此步骤并缓存。
 
-### 4. 配置环境变量
+### 3. 配置环境变量
 
 复制 `.env.example` 为 `.env` 并填入你的 API 密钥：
 
@@ -39,36 +42,28 @@ python -m camoufox fetch
 cp .env.example .env
 ```
 
-必需的环境变量：
-- `ZOTERO_API_KEY`：[Zotero API 密钥](https://www.zotero.org/settings/keys)
-- `ZOTERO_USER_ID`：Zotero 用户 ID（在 API 密钥页面可见）
-- `VOYAGE_API_KEY`：[Voyage AI API 密钥](https://dash.voyageai.com/)（用于文本嵌入）
-- `OPENROUTER_API_KEY`：[OpenRouter API 密钥](https://openrouter.ai/keys)（用于 AI 摘要，可选）
+| 变量名 | 必需 | 说明 | 获取地址 |
+|--------|------|------|----------|
+| `ZOTERO_API_KEY` | ✅ | Zotero API 密钥 | [Zotero API Keys](https://www.zotero.org/settings/keys) |
+| `ZOTERO_USER_ID` | ✅ | Zotero 用户 ID（在 API 密钥页面可见） | 同上 |
+| `VOYAGE_API_KEY` | ✅ | Voyage AI API 密钥（用于文本嵌入和重排序） | [Voyage AI](https://dash.voyageai.com/) |
+| `MOONSHOT_API_KEY` | ⚠️ | Kimi (Moonshot AI) API 密钥 | [Moonshot AI](https://platform.moonshot.cn/) |
+| `OPENROUTER_API_KEY` | ⚠️ | OpenRouter API 密钥（支持 Claude 等模型） | [OpenRouter](https://openrouter.ai/keys) |
+| `CROSSREF_MAILTO` | 推荐 | Crossref 礼貌池邮箱 | 你的邮箱地址 |
 
-可选的环境变量：
-- `CROSSREF_MAILTO`：Crossref 礼貌池邮箱
+> **注意**：`MOONSHOT_API_KEY` 和 `OPENROUTER_API_KEY` 至少需要配置其中一个，用于 AI 摘要生成和标题翻译功能。默认使用 Kimi，可在 `config/config.yaml` 中切换。
 
-### 5. 运行
+### 4. 运行
 
 ```bash
-# 首次全量画像构建（计算所有条目的嵌入）
+# 首次全量画像构建
 uv run zotwatch profile --full
 
-# 增量更新画像（仅计算新增/变更条目的嵌入）
-uv run zotwatch profile
-
-# 日常监测（默认生成 RSS + HTML 报告 + AI 摘要，推荐 20 篇）
+# 日常监测（生成 RSS + HTML 报告 + AI 摘要）
 uv run zotwatch watch
-
-# 只生成 RSS
-uv run zotwatch watch --rss
-
-# 只生成 HTML 报告
-uv run zotwatch watch --report
-
-# 自定义推荐数量
-uv run zotwatch watch --top 50
 ```
+
+详细命令参数请参考下方 [CLI 命令](#cli-命令) 章节。
 
 ## CLI 命令
 
@@ -102,6 +97,7 @@ Options:
 默认行为：
 - 同时生成 RSS 和 HTML 报告
 - 自动为所有推荐论文生成 AI 摘要
+- 自动翻译论文标题（如已启用）
 - 推荐数量默认 20 篇
 
 ## 目录结构
@@ -113,11 +109,12 @@ ZotWatch/
 │   ├── config/             # 配置管理
 │   ├── infrastructure/     # 存储、嵌入、HTTP 客户端
 │   │   ├── storage/        # SQLite 存储
-│   │   └── embedding/      # Voyage AI + FAISS
-│   ├── sources/            # 数据源（arXiv、Crossref 等）
-│   ├── llm/                # LLM 集成（OpenRouter）
+│   │   ├── embedding/      # Voyage AI 嵌入 + FAISS 索引 + 重排序
+│   │   └── enrichment/     # 摘要抓取器（Camoufox + LLM）
+│   ├── sources/            # 数据源（arXiv、Crossref、Zotero）
+│   ├── llm/                # LLM 集成（Kimi、OpenRouter）
 │   ├── pipeline/           # 处理管道
-│   ├── output/             # 输出生成（RSS、HTML）
+│   ├── output/             # 输出生成（RSS、HTML、Zotero 推送）
 │   └── cli/                # Click CLI
 ├── config/
 │   └── config.yaml         # 统一配置文件
@@ -128,42 +125,30 @@ ZotWatch/
 
 ## 配置说明
 
-所有配置集中在 `config/config.yaml`：
+所有配置集中在 `config/config.yaml`，支持环境变量替换（`${VAR_NAME}` 语法）。可配置项包括：
 
-```yaml
-# Zotero API 设置
-zotero:
-  api:
-    user_id: "${ZOTERO_USER_ID}"
-    api_key: "${ZOTERO_API_KEY}"
+- **数据源**：arXiv/Crossref 的类别、时间范围、抓取数量
+- **LLM 提供商**：Kimi 或 OpenRouter，模型选择、参数调整
+- **评分阈值**：固定或动态阈值模式
+- **兴趣驱动推荐**：自定义研究兴趣描述
+- **输出设置**：时区、RSS 信息等
 
-# 数据源开关
-sources:
-  arxiv:
-    enabled: true
-    categories: ["cs.LG", "cs.CV", "cs.AI"]
-  crossref:
-    enabled: true
-  # ...
+## 处理管道
 
-# 评分权重
-scoring:
-  weights:
-    similarity: 0.50
-    recency: 0.15
-    # ...
+ZotWatch 的 `watch` 命令执行以下处理流程：
 
-# 嵌入模型
-embedding:
-  provider: "voyage"
-  model: "voyage-3.5"
-
-# LLM 摘要
-llm:
-  enabled: true
-  provider: "openrouter"
-  model: "anthropic/claude-3.5-sonnet"
-```
+1. **画像检查**：如果不存在画像，自动从 Zotero 构建
+2. **增量同步**：从 Zotero 同步最新条目
+3. **研究画像分析**：使用 LLM 分析文库，生成领域分类和洞察
+4. **候选抓取**：从 arXiv、Crossref 获取候选论文
+5. **摘要补全**：使用 Camoufox 从出版商网站抓取缺失摘要
+6. **去重过滤**：过滤已在文库中的论文
+7. **兴趣匹配**（可选）：基于用户兴趣描述进行语义重排序
+8. **相似度排序**：使用 FAISS 索引计算与文库的语义相似度
+9. **应用过滤**：时间窗口、预印本比例、数量限制
+10. **AI 摘要**：为推荐论文生成结构化摘要
+11. **标题翻译**：将英文标题翻译为中文
+12. **输出生成**：生成 RSS、HTML 报告
 
 ## GitHub Actions 自动运行
 
@@ -179,15 +164,17 @@ llm:
 
 | Secret 名称 | 必需 | 说明 |
 |------------|------|------|
-| `ZOTERO_API_KEY` | ✅ | [Zotero API 密钥](https://www.zotero.org/settings/keys) |
-| `ZOTERO_USER_ID` | ✅ | Zotero 用户 ID（在 API 密钥页面可见） |
-| `VOYAGE_API_KEY` | ✅ | [Voyage AI API 密钥](https://dash.voyageai.com/) |
+| `ZOTERO_API_KEY` | ✅ | Zotero API 密钥 |
+| `ZOTERO_USER_ID` | ✅ | Zotero 用户 ID |
+| `VOYAGE_API_KEY` | ✅ | Voyage AI API 密钥 |
+| `MOONSHOT_API_KEY` | 推荐 | Kimi API 密钥（默认 LLM 提供商） |
+| `OPENROUTER_API_KEY` | 可选 | OpenRouter API 密钥（备选 LLM 提供商） |
 | `CROSSREF_MAILTO` | 推荐 | 你的邮箱，用于 Crossref 礼貌池 |
-| `OPENROUTER_API_KEY` | 可选 | [OpenRouter API 密钥](https://openrouter.ai/keys)，用于 AI 摘要 |
-| `MOONSHOT_API_KEY` | 可选 | [Kimi API 密钥](https://platform.moonshot.cn/)，用于 AI 摘要（与 OpenRouter 二选一） |
+| `DEPLOY_KEY` | 可选 | SSH 私钥，用于部署到外部仓库 |
 
-### 3. 启用 GitHub Pages
+### 3. 启用 GitHub Pages（可选）
 
+如果部署到同一仓库：
 1. 进入 **Settings → Pages**
 2. **Source** 选择 **GitHub Actions**
 3. 保存设置
@@ -195,7 +182,7 @@ llm:
 ### 4. 首次运行
 
 1. 进入 **Actions** 标签页
-2. 点击左侧 **Daily Watch & RSS**
+2. 点击左侧 **Daily Watch & Deploy**
 3. 点击 **Run workflow** 手动触发首次运行
 4. 首次运行约需 5-10 分钟（构建画像 + 安装浏览器）
 
@@ -203,12 +190,12 @@ llm:
 
 运行成功后，可通过以下地址访问：
 
-- **RSS 订阅**：`https://[username].github.io/ZotWatch/feed.xml`
-- **HTML 报告**：`https://[username].github.io/ZotWatch/report.html`
+- **RSS 订阅**：`https://[username].github.io/[repo]/feed.xml`
+- **HTML 报告**：`https://[username].github.io/[repo]/report.html`
 
 ### 6. 自动运行
 
-- Workflow 默认每天北京时间 **6:05** 自动运行
+- Workflow 默认每天北京时间 **8:25** 自动运行
 - 可在 `.github/workflows/daily_watch.yml` 中修改 cron 表达式调整时间
 - 支持随时手动触发
 
@@ -218,9 +205,40 @@ llm:
 |------|---------|---------|
 | 依赖安装 | ~1 分钟 | ~10 秒（有缓存） |
 | Camoufox 安装 | ~2 分钟 | ~10 秒（有缓存） |
-| 画像构建 | ~3-5 分钟 | 跳过（有缓存） |
-| 候选抓取 + 评分 | ~2-3 分钟 | ~2-3 分钟 |
-| **总计** | **~10 分钟** | **~3-5 分钟** |
+| Zotero 同步 | ~2 分钟 | ~10 秒（增量） |
+| 画像构建 | ~30 秒 | 跳过（有缓存） |
+| 候选抓取 | ~10 秒 | ~10 秒 |
+| 摘要补全（Scraper） | ~15 分钟 | ~1-5 分钟（有缓存） |
+| 评分排序 | ~30 秒 | ~30 秒 |
+| AI 摘要生成 | ~4 分钟 | ~1 分钟（有缓存） |
+| 标题翻译 | ~20 秒 | ~20 秒 |
+| **总计** | **~25 分钟** | **~5-10 分钟** |
+
+> **说明**：摘要补全阶段耗时取决于需要抓取的论文数量。上表基于约 100 篇需抓取摘要、25 篇生成 AI 摘要的典型场景。后续运行因缓存机制，实际耗时会显著减少。
+
+## 数据文件
+
+ZotWatch 在 `data/` 目录下存储以下文件：
+
+| 文件 | 说明 | 版本控制 |
+|------|------|----------|
+| `journal_whitelist.csv` | Crossref 期刊白名单（ISSN、期刊名、类别、影响因子） | ✅ 已纳入 |
+| `profile.sqlite` | Zotero 条目和元数据 | ❌ |
+| `faiss.index` | FAISS 向量索引 | ❌ |
+| `embeddings.sqlite` | 嵌入向量缓存 | ❌ |
+| `metadata.sqlite` | 抓取的摘要缓存 | ❌ |
+
+### 期刊白名单
+
+`data/journal_whitelist.csv` 用于筛选 Crossref 数据源的期刊。只有在此白名单中的期刊才会被抓取。文件格式：
+
+```csv
+issn,title,category,impact_factor
+0162-8828,IEEE Trans. Pattern Analysis and Machine Intelligence,AI/ML,18.60
+0196-2892,IEEE Trans. Geoscience and Remote Sensing,RS,8.60
+```
+
+你可以根据自己的研究领域编辑此文件，添加或删除期刊。
 
 ## 常见问题
 
@@ -231,16 +249,18 @@ uv run zotwatch profile --full
 
 **Q: 推荐为空？**
 
-检查是否所有候选都超出 7 天窗口或预印本比例被限制。可调节 `--top` 参数或修改 `config.yaml` 中的阈值。
+检查以下可能原因：
+- 所有候选都超出时间窗口（默认 7 天）
+- 预印本比例限制（默认 0.9）
+- 没有摘要的论文被过滤
+
+可调节 `--top` 参数或修改 `config/config.yaml` 中的相关阈值。
 
 **Q: AI 摘要不生成？**
 
-确保 `OPENROUTER_API_KEY` 已配置，且 `config.yaml` 中 `llm.enabled: true`。
+确保已配置 `MOONSHOT_API_KEY` 或 `OPENROUTER_API_KEY`，且 `config.yaml` 中 `llm.enabled: true`。
 
-**Q: 如何禁用 AI 摘要？**
+**Q: 如何添加或删除监测的期刊？**
 
-在 `config/config.yaml` 中设置 `llm.enabled: false`。
+编辑 `data/journal_whitelist.csv` 文件，添加或删除期刊的 ISSN。
 
-## License
-
-MIT
