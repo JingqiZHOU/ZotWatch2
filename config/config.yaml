@@ -80,6 +80,9 @@ llm:
   summarize:
     top_n: 20
     cache_expiry_days: 30
+  # Title translation (translate English titles to Chinese in HTML report)
+  translation:
+    enabled: true
 
 # Example Kimi configuration (uncomment to use):
 # llm:

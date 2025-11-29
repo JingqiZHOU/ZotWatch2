@@ -169,6 +169,26 @@ PROFILE_ANALYSIS_PROMPT = """请根据以下研究者的**文献阅读和收藏�
 
 重要：只返回JSON对象，不要添加任何额外文字或markdown格式。"""
 
+TITLE_TRANSLATION_PROMPT = """请将以下学术论文标题翻译成{target_language}。
+
+要求：
+1. 保持学术术语的准确性和专业性
+2. 翻译应自然流畅，符合目标语言的学术表达习惯
+3. 专有名词、模型名称（如 BERT、GPT、ResNet 等）保持英文原样
+
+论文标题列表（每行一个标题，格式为 "ID: 标题"）：
+{titles_list}
+
+请以 JSON 格式返回翻译结果：
+{{
+  "translations": [
+    {{"id": "paper_id_1", "translated": "翻译后的标题1"}},
+    {{"id": "paper_id_2", "translated": "翻译后的标题2"}}
+  ]
+}}
+
+只返回 JSON 对象，不要添加任何额外文字或 markdown 格式。"""
+
 
 __all__ = [
     "BULLET_SUMMARY_PROMPT",
@@ -177,4 +197,5 @@ __all__ = [
     "OVERALL_SUMMARY_PROMPT",
     "DOMAIN_CLASSIFICATION_PROMPT",
     "PROFILE_ANALYSIS_PROMPT",
+    "TITLE_TRANSLATION_PROMPT",
 ]

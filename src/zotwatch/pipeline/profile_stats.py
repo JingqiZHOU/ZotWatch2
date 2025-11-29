@@ -13,6 +13,7 @@ from zotwatch.core.models import (
     RecentPapersAnalysis,
     ResearcherProfile,
     VenueStats,
+    YearDistribution,
     ZoteroItem,
 )
 
@@ -94,6 +95,7 @@ class ProfileStatsExtractor:
             authors=self._extract_authors(items),
             venues=self._extract_venues(items),
             quarterly_trends=self._extract_quarterly_trends(items),
+            year_distribution=self._extract_year_distribution(items),
             recent_analysis=self._analyze_recent(items),
             generated_at=datetime.utcnow(),
             library_hash=library_hash,
@@ -287,6 +289,35 @@ class ProfileStatsExtractor:
                 )
 
         return all_quarters
+
+    def _extract_year_distribution(
+        self,
+        items: list[ZoteroItem],
+        years_back: int = 20,
+    ) -> list[YearDistribution]:
+        """Extract paper count by publication year for the last N years.
+
+        Args:
+            items: Zotero items to analyze.
+            years_back: Number of years to include (default: 20).
+
+        Returns:
+            List of year distribution sorted chronologically.
+        """
+        current_year = datetime.now().year
+        start_year = current_year - years_back + 1
+
+        # Count papers by year
+        year_counts: Counter[int] = Counter()
+        for item in items:
+            if item.year and item.year >= start_year:
+                year_counts[item.year] += 1
+
+        # Generate all years in range (including zero counts)
+        return [
+            YearDistribution(year=year, paper_count=year_counts.get(year, 0))
+            for year in range(start_year, current_year + 1)
+        ]
 
     def _get_quarter(self, year: int, date_str: str) -> str:
         """Determine quarter from year and date string.

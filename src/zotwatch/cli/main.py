@@ -21,6 +21,7 @@ from zotwatch.llm import (
     OpenRouterClient,
     OverallSummarizer,
     PaperSummarizer,
+    TitleTranslator,
 )
 from zotwatch.llm.base import BaseLLMProvider
 from zotwatch.output import render_html, write_rss
@@ -454,6 +455,31 @@ def watch(
             overall_summaries["similarity"] = overall_summarizer.summarize_section(ranked, "similarity")
     else:
         click.echo("\nAI summaries disabled (llm.enabled=false in config)")
+
+    # Translate titles for HTML report
+    if settings.llm.enabled and settings.llm.translation.enabled and report:
+        click.echo("Translating paper titles...")
+        llm_client = _create_llm_client(settings.llm)
+        translator = TitleTranslator(
+            llm_client,
+            storage,
+            model=settings.llm.model,
+        )
+
+        # Combine all works for translation
+        all_works_for_translation = ranked + (interest_works if interest_works else [])
+        translations = translator.translate_batch(all_works_for_translation)
+
+        # Attach translations to works
+        for work in ranked:
+            if work.identifier in translations:
+                work.translated_title = translations[work.identifier]
+
+        for work in interest_works or []:
+            if work.identifier in translations:
+                work.translated_title = translations[work.identifier]
+
+        click.echo(f"  Translated {len(translations)} titles")
 
     # Generate outputs
     if rss:

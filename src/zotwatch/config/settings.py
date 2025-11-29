@@ -132,6 +132,12 @@ class LLMSummarizeConfig(BaseModel):
     cache_expiry_days: int = 30
 
 
+class TranslationConfig(BaseModel):
+    """Title translation configuration."""
+
+    enabled: bool = False
+
+
 class LLMConfig(BaseModel):
     """LLM provider configuration."""
 
@@ -143,6 +149,7 @@ class LLMConfig(BaseModel):
     temperature: float = 0.3
     retry: LLMRetryConfig = Field(default_factory=LLMRetryConfig)
     summarize: LLMSummarizeConfig = Field(default_factory=LLMSummarizeConfig)
+    translation: TranslationConfig = Field(default_factory=TranslationConfig)
 
 
 # Output Configuration
@@ -219,6 +226,7 @@ __all__ = [
     "RerankConfig",
     "EmbeddingConfig",
     "LLMConfig",
+    "TranslationConfig",
     "OutputConfig",
     "ProfileConfig",
 ]

@@ -47,6 +47,15 @@ CREATE TABLE IF NOT EXISTS profile_analysis (
     generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS title_translations (
+    paper_id TEXT PRIMARY KEY,
+    original_title TEXT NOT NULL,
+    translated_title TEXT NOT NULL,
+    target_language TEXT NOT NULL,
+    model_used TEXT NOT NULL,
+    generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_items_version ON items(version);
 CREATE INDEX IF NOT EXISTS idx_items_content_hash ON items(content_hash);
 CREATE INDEX IF NOT EXISTS idx_summaries_expires ON summaries(expires_at);
@@ -276,6 +285,86 @@ class ProfileStorage:
         """Clear profile analysis cache."""
         self.connect().execute("DELETE FROM profile_analysis")
         self.connect().commit()
+
+    # Translation cache helpers
+
+    def get_translation(self, paper_id: str, target_language: str) -> str | None:
+        """Get cached translation by paper ID and target language."""
+        cur = self.connect().execute(
+            "SELECT translated_title FROM title_translations WHERE paper_id = ? AND target_language = ?",
+            (paper_id, target_language),
+        )
+        row = cur.fetchone()
+        return row["translated_title"] if row else None
+
+    def save_translation(
+        self,
+        paper_id: str,
+        original: str,
+        translated: str,
+        target_language: str,
+        model: str,
+    ) -> None:
+        """Save translation to cache."""
+        self.connect().execute(
+            """
+            INSERT INTO title_translations(paper_id, original_title, translated_title, target_language, model_used)
+            VALUES(?, ?, ?, ?, ?)
+            ON CONFLICT(paper_id) DO UPDATE SET
+                original_title=excluded.original_title,
+                translated_title=excluded.translated_title,
+                target_language=excluded.target_language,
+                model_used=excluded.model_used,
+                generated_at=CURRENT_TIMESTAMP
+            """,
+            (paper_id, original, translated, target_language, model),
+        )
+        self.connect().commit()
+
+    def get_translations_batch(self, paper_ids: list[str], target_language: str) -> dict[str, str]:
+        """Get multiple cached translations at once."""
+        if not paper_ids:
+            return {}
+        placeholders = ",".join("?" for _ in paper_ids)
+        cur = self.connect().execute(
+            f"SELECT paper_id, translated_title FROM title_translations WHERE paper_id IN ({placeholders}) AND target_language = ?",
+            (*paper_ids, target_language),
+        )
+        return {row["paper_id"]: row["translated_title"] for row in cur}
+
+    def save_translations_batch(
+        self,
+        translations: list[dict],
+        target_language: str,
+        model: str,
+    ) -> None:
+        """Save multiple translations at once.
+
+        Args:
+            translations: List of dicts with keys: paper_id, original, translated
+            target_language: Target language code
+            model: Model used for translation
+        """
+        if not translations:
+            return
+        conn = self.connect()
+        conn.executemany(
+            """
+            INSERT INTO title_translations(paper_id, original_title, translated_title, target_language, model_used)
+            VALUES(?, ?, ?, ?, ?)
+            ON CONFLICT(paper_id) DO UPDATE SET
+                original_title=excluded.original_title,
+                translated_title=excluded.translated_title,
+                target_language=excluded.target_language,
+                model_used=excluded.model_used,
+                generated_at=CURRENT_TIMESTAMP
+            """,
+            [
+                (t["paper_id"], t["original"], t["translated"], target_language, model)
+                for t in translations
+            ],
+        )
+        conn.commit()
 
 
 def _row_to_item(row: sqlite3.Row) -> ZoteroItem:

@@ -111,6 +111,7 @@ class RankedWork(CandidateWork):
     is_chinese_core: bool = False  # True if Chinese core journal
     label: str  # must_read/consider/ignore
     summary: "PaperSummary | None" = None
+    translated_title: str | None = None  # Translated title for display
 
 
 class InterestWork(RankedWork):
@@ -238,6 +239,13 @@ class QuarterlyTrend(BaseModel):
     top_domains: list[str] = Field(default_factory=list)
 
 
+class YearDistribution(BaseModel):
+    """Publication year distribution item."""
+
+    year: int
+    paper_count: int
+
+
 class RecentPapersAnalysis(BaseModel):
     """Analysis of recently added papers."""
 
@@ -272,6 +280,7 @@ class ResearcherProfile(BaseModel):
     authors: list[AuthorStats] = Field(default_factory=list)
     venues: list[VenueStats] = Field(default_factory=list)
     quarterly_trends: list[QuarterlyTrend] = Field(default_factory=list)
+    year_distribution: list[YearDistribution] = Field(default_factory=list)
 
     # Recent activity
     recent_analysis: RecentPapersAnalysis | None = None
@@ -303,6 +312,7 @@ __all__ = [
     "AuthorStats",
     "VenueStats",
     "QuarterlyTrend",
+    "YearDistribution",
     "RecentPapersAnalysis",
     "ResearcherProfileInsights",
     "ResearcherProfile",

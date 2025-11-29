@@ -6,6 +6,7 @@ from .library_analyzer import LibraryAnalyzer
 from .openrouter import OpenRouterClient
 from .overall_summarizer import OverallSummarizer
 from .summarizer import PaperSummarizer
+from .translator import TitleTranslator
 
 __all__ = [
     "KimiClient",
@@ -14,4 +15,5 @@ __all__ = [
     "InterestRefiner",
     "OverallSummarizer",
     "LibraryAnalyzer",
+    "TitleTranslator",
 ]
