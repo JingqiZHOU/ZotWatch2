@@ -13,6 +13,8 @@ import sys
 from dataclasses import dataclass
 from enum import Enum
 
+import requests
+
 
 class Status(Enum):
     SUCCESS = "success"
@@ -88,8 +90,6 @@ def check_env_vars() -> dict[str, bool]:
 
 def test_zotero() -> TestResult:
     """Test Zotero API connection."""
-    import requests
-
     api_key = os.environ.get("ZOTERO_API_KEY")
     user_id = os.environ.get("ZOTERO_USER_ID")
 
@@ -164,8 +164,6 @@ def test_voyage() -> TestResult:
 
 def test_crossref() -> TestResult:
     """Test Crossref API connection."""
-    import requests
-
     mailto = os.environ.get("CROSSREF_MAILTO")
 
     if not mailto:
@@ -198,14 +196,9 @@ def test_crossref() -> TestResult:
 
 def test_arxiv() -> TestResult:
     """Test arXiv API connection."""
-    import time
-    import requests
     import feedparser
 
     try:
-        # arXiv has strict rate limits, wait a bit before request
-        time.sleep(1)
-
         params = {
             "search_query": "cat:cs.LG",
             "max_results": 1,
@@ -240,8 +233,6 @@ def test_arxiv() -> TestResult:
 
 def test_openrouter() -> TestResult:
     """Test OpenRouter API connection."""
-    import requests
-
     api_key = os.environ.get("OPENROUTER_API_KEY")
 
     if not api_key:
@@ -275,8 +266,6 @@ def test_openrouter() -> TestResult:
 
 def test_kimi() -> TestResult:
     """Test Kimi (Moonshot) API connection."""
-    import requests
-
     api_key = os.environ.get("MOONSHOT_API_KEY")
 
     if not api_key:
