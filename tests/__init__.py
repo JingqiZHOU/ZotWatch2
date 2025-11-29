@@ -1,1 +1,0 @@
-"""ZotWatch test suite."""

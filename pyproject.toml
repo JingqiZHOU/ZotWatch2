@@ -36,26 +36,3 @@ line-length = 120
 
 [tool.ruff.format]
 docstring-code-format = true
-
-[dependency-groups]
-dev = [
-    "pytest>=9.0.1",
-    "pytest-cov>=7.0.0",
-]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = "test_*.py"
-python_functions = "test_*"
-addopts = "-v --tb=short"
-
-[tool.coverage.run]
-source = ["src/zotwatch"]
-branch = true
-
-[tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "if TYPE_CHECKING:",
-    "raise NotImplementedError",
-]
