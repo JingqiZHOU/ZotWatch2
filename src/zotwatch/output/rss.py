@@ -64,6 +64,10 @@ def write_rss(
         for author in work.authors:
             ET.SubElement(item, f"{{{NS_DC}}}creator").text = author
 
+        # Dublin Core: Item type (for Zotero 6.0+ preprint support)
+        if work.source == "arxiv":
+            ET.SubElement(item, f"{{{NS_DC}}}type").text = "preprint"
+
         # PRISM: Publication metadata
         if work.venue:
             ET.SubElement(item, f"{{{NS_PRISM}}}publicationName").text = work.venue
