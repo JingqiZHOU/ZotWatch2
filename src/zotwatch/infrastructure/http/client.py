@@ -20,6 +20,7 @@ class HTTPClient:
         timeout: float = 30.0,
         max_retries: int = 3,
         backoff_factor: float = 2.0,
+        retryable_statuses: set[int] | None = None,
     ):
         self.session = requests.Session()
         if headers:
@@ -27,6 +28,7 @@ class HTTPClient:
         self.timeout = timeout
         self.max_retries = max_retries
         self.backoff_factor = backoff_factor
+        self.retryable_statuses = retryable_statuses or {429}
 
     def get(
         self,
@@ -57,18 +59,21 @@ class HTTPClient:
         for attempt in range(self.max_retries):
             try:
                 response = self.session.request(method, url, **kwargs)
-                if response.status_code == 429:
-                    retry_after = int(response.headers.get("Retry-After", delay))
+                if response.status_code in self.retryable_statuses:
+                    retry_after = self._get_retry_delay(response, delay)
                     logger.warning(
-                        "Rate limited on %s, waiting %d seconds (attempt %d/%d)",
+                        "%s %s returned %d, retrying in %.1fs (attempt %d/%d)",
+                        method,
                         url,
+                        response.status_code,
                         retry_after,
                         attempt + 1,
                         self.max_retries,
                     )
-                    time.sleep(retry_after)
-                    delay *= self.backoff_factor
-                    continue
+                    if attempt < self.max_retries - 1:
+                        time.sleep(retry_after)
+                        delay *= self.backoff_factor
+                        continue
                 return response
             except requests.exceptions.RequestException as e:
                 last_exception = e
@@ -85,6 +90,17 @@ class HTTPClient:
         if last_exception:
             raise NetworkError(f"Request failed after {self.max_retries} retries: {last_exception}", url=url)
         raise NetworkError(f"Request failed after {self.max_retries} retries", url=url)
+
+    @staticmethod
+    def _get_retry_delay(response: requests.Response, default: float) -> float:
+        """Get retry delay from Retry-After header or use default."""
+        retry_after = response.headers.get("Retry-After")
+        if retry_after:
+            try:
+                return float(retry_after)
+            except ValueError:
+                pass
+        return default
 
 
 __all__ = ["HTTPClient"]

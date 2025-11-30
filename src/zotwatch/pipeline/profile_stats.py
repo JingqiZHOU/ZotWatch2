@@ -4,9 +4,9 @@ import hashlib
 import json
 import logging
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from zotwatch.utils.datetime import utc_now
+from zotwatch.utils.datetime import ensure_aware, utc_now
 
 from zotwatch.core.models import (
     AuthorStats,
@@ -348,19 +348,21 @@ class ProfileStatsExtractor:
         self,
         items: list[ZoteroItem],
     ) -> RecentPapersAnalysis:
-        """Analyze recently added papers.
+        """Analyze recently added papers using dateAdded when available.
 
-        Since Zotero API doesn't provide dateAdded in our storage,
-        we approximate "recent" as papers from the current year.
-
-        Args:
-            items: Zotero items to analyze.
-
-        Returns:
-            Analysis of recent papers.
+        Falls back to publication year filtering when dateAdded is missing.
         """
+        cutoff = utc_now() - timedelta(days=self.recent_days)
         current_year = datetime.now().year
-        recent_items = [i for i in items if i.year and i.year >= current_year]
+
+        recent_items: list[ZoteroItem] = []
+        for item in items:
+            if item.date_added:
+                added = ensure_aware(item.date_added)
+                if added and added >= cutoff:
+                    recent_items.append(item)
+            elif item.year and item.year >= current_year:
+                recent_items.append(item)
 
         # Find keywords that appear only/mainly in recent papers
         recent_tags: Counter[str] = Counter()
@@ -371,7 +373,7 @@ class ProfileStatsExtractor:
                 if tag and len(tag.strip()) > 1:
                     normalized = tag.strip()
                     all_tags[normalized] += 1
-                    if item.year and item.year >= current_year:
+                    if item in recent_items:
                         recent_tags[normalized] += 1
 
         # Find "new" keywords (only appear in recent papers)

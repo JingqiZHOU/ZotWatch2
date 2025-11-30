@@ -2,9 +2,10 @@
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from zotwatch.infrastructure.cache_base import BaseSQLiteCache
+from zotwatch.utils.datetime import format_sqlite_datetime, utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +120,7 @@ class MetadataCache(BaseSQLiteCache):
             citation_count: Citation count.
             ttl_days: Time-to-live in days.
         """
-        expires_at = (datetime.now() + timedelta(days=ttl_days)).isoformat()
+        expires_at = format_sqlite_datetime(utc_now() + timedelta(days=ttl_days))
         authors_json = json.dumps(authors) if authors else None
 
         with self._write_lock:
@@ -150,7 +151,7 @@ class MetadataCache(BaseSQLiteCache):
         if not items:
             return
 
-        expires_at = (datetime.now() + timedelta(days=ttl_days)).isoformat()
+        expires_at = format_sqlite_datetime(utc_now() + timedelta(days=ttl_days))
 
         with self._write_lock:
             conn = self._connect()

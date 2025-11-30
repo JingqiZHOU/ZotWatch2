@@ -67,6 +67,18 @@ def parse_date(value) -> datetime | None:
     return None
 
 
+def format_sqlite_datetime(dt: datetime) -> str:
+    """Format datetime as SQLite-compatible UTC string.
+
+    SQLite datetime('now') returns UTC in 'YYYY-MM-DD HH:MM:SS' format.
+    This function ensures consistent formatting for comparisons.
+    """
+    aware_dt = ensure_aware(dt)
+    if aware_dt is None:
+        raise ValueError("Cannot format None datetime")
+    return aware_dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+
 __all__ = [
     "utc_now",
     "utc_today_start",
@@ -75,4 +87,5 @@ __all__ = [
     "iso_to_datetime",
     "ensure_aware",
     "parse_date",
+    "format_sqlite_datetime",
 ]

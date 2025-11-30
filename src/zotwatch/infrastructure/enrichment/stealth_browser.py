@@ -54,6 +54,15 @@ class StealthBrowser:
     MAX_CF_RETRIES = 3
 
     @classmethod
+    def set_profile_path(cls, path: Path) -> None:
+        """Override default profile path (must be called before get_browser)."""
+        with cls._init_lock:
+            if cls._initialized:
+                logger.warning("StealthBrowser already initialized; profile path change ignored")
+                return
+            cls._profile_path = Path(path)
+
+    @classmethod
     def _ensure_event_loop(cls):
         """Ensure we have an event loop running in a background thread."""
         if cls._event_loop is None or not cls._event_loop.is_running():

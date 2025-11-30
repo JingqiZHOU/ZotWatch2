@@ -156,29 +156,41 @@ class WatchPipeline:
         full: bool = True,
         on_progress: Callable[[str, str], None] | None = None,
     ) -> None:
-        """Build user profile from Zotero library."""
+        """Build user profile from Zotero library (ingest + embeddings)."""
         storage = self._get_storage()
+        self._run_ingest(storage, full=full, on_progress=on_progress)
+        self._build_profile_from_storage(full=full)
+
+    def _build_profile_from_storage(self, *, full: bool = False) -> None:
+        """Build embeddings + FAISS index from items already in storage."""
         embedding_cache = self._get_embedding_cache()
 
-        # Ingest from Zotero
-        ingestor = ZoteroIngestor(storage, self.settings)
-        ingestor.run(full=full, on_progress=on_progress)
-
-        # Build profile
         vectorizer = VoyageEmbedding(
             model_name=self.settings.embedding.model,
             api_key=self.settings.embedding.api_key,
             input_type=self.settings.embedding.input_type,
             batch_size=self.settings.embedding.batch_size,
         )
+
         builder = ProfileBuilder(
             self.base_dir,
-            storage,
+            self._get_storage(),
             self.settings,
             vectorizer=vectorizer,
             embedding_cache=embedding_cache,
         )
         builder.run(full=full)
+
+    def _run_ingest(
+        self,
+        storage: ProfileStorage,
+        *,
+        full: bool,
+        on_progress: Callable[[str, str], None] | None = None,
+    ):
+        """Run Zotero ingest with optional progress callbacks."""
+        ingestor = ZoteroIngestor(storage, self.settings)
+        return ingestor.run(full=full, on_progress=on_progress)
 
     def run(
         self,
@@ -208,10 +220,17 @@ class WatchPipeline:
         if profile_built:
             progress("profile", "Profile built from Zotero library")
 
-        # 2. Incremental Zotero sync
-        progress("sync", "Syncing with Zotero...")
-        ingestor = ZoteroIngestor(storage, self.settings)
-        ingestor.run(full=False, on_progress=progress)
+        ingest_stats = None
+
+        # 2. Incremental Zotero sync (skip if we just did a full rebuild)
+        if not profile_built:
+            progress("sync", "Syncing with Zotero...")
+            ingest_stats = self._run_ingest(storage, full=False, on_progress=progress)
+
+            # 2.1 Refresh profile artifacts when library changed
+            if ingest_stats and (ingest_stats.fetched > 0 or ingest_stats.removed > 0):
+                progress("profile", "Updating profile embeddings and FAISS index...")
+                self._build_profile_from_storage(full=False)
 
         # 3. Analyze researcher profile (optional)
         if self.settings.llm.enabled:

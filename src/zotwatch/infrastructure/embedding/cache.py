@@ -1,9 +1,10 @@
 """Unified embedding cache storage layer."""
 
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from zotwatch.infrastructure.cache_base import BaseSQLiteCache
+from zotwatch.utils.datetime import format_sqlite_datetime, utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +123,7 @@ class EmbeddingCache(BaseSQLiteCache):
         """
         expires_at = None
         if ttl_days is not None:
-            expires_at = (datetime.now() + timedelta(days=ttl_days)).isoformat()
+            expires_at = format_sqlite_datetime(utc_now() + timedelta(days=ttl_days))
 
         with self._write_lock:
             conn = self._connect()
@@ -158,7 +159,7 @@ class EmbeddingCache(BaseSQLiteCache):
 
         expires_at = None
         if ttl_days is not None:
-            expires_at = (datetime.now() + timedelta(days=ttl_days)).isoformat()
+            expires_at = format_sqlite_datetime(utc_now() + timedelta(days=ttl_days))
 
         if source_ids is None:
             source_ids = [None] * len(items)

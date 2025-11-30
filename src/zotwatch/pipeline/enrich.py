@@ -75,6 +75,11 @@ class AbstractEnricher:
             cache_path = self.base_dir / "data" / "metadata.sqlite"
             self.cache = MetadataCache(cache_path)
 
+        # Ensure Camoufox profile lives under project data directory
+        from zotwatch.infrastructure.enrichment.stealth_browser import StealthBrowser
+
+        StealthBrowser.set_profile_path(self.base_dir / "data" / "camoufox_profile")
+
     def enrich(self, candidates: list[CandidateWork]) -> tuple[list[CandidateWork], EnrichmentStats]:
         """Enrich candidates with missing abstracts.
 

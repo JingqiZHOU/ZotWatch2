@@ -8,13 +8,18 @@ from dataclasses import dataclass
 import requests
 
 from zotwatch.config.settings import Settings
+from zotwatch.core.constants import DEFAULT_HTTP_TIMEOUT
 from zotwatch.core.models import ZoteroItem
+from zotwatch.infrastructure.http import HTTPClient
 from zotwatch.infrastructure.storage import ProfileStorage
 from zotwatch.utils.hashing import hash_content
 
 logger = logging.getLogger(__name__)
 
 API_BASE = "https://api.zotero.org"
+
+# Retryable HTTP status codes for Zotero API
+RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
 
 
 @dataclass
@@ -32,14 +37,15 @@ class ZoteroClient:
 
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.session = requests.Session()
-        api_key = settings.zotero.api.api_key
-        self.session.headers.update(
-            {
+        self.http = HTTPClient(
+            headers={
                 "Zotero-API-Version": "3",
-                "Authorization": f"Bearer {api_key}",
+                "Authorization": f"Bearer {settings.zotero.api.api_key}",
                 "User-Agent": "ZotWatch/0.2",
-            }
+            },
+            timeout=DEFAULT_HTTP_TIMEOUT,
+            max_retries=3,
+            retryable_statuses=RETRYABLE_STATUSES,
         )
         self.base_user_url = f"{API_BASE}/users/{settings.zotero.api.user_id}"
         self.base_items_url = f"{self.base_user_url}/items"
@@ -58,7 +64,7 @@ class ZoteroClient:
 
         next_url = self.base_items_url
         while next_url:
-            resp = self.session.get(
+            resp = self.http.get(
                 next_url,
                 params=params if next_url == self.base_items_url else None,
                 headers=headers,
@@ -78,7 +84,7 @@ class ZoteroClient:
         if since_version is None:
             return []
         url = f"{self.base_user_url}/deleted"
-        resp = self.session.get(url, params={"since": since_version})
+        resp = self.http.get(url, params={"since": since_version})
         resp.raise_for_status()
         payload = resp.json() or {}
         deleted_items = payload.get("items", [])
