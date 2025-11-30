@@ -19,6 +19,7 @@ dependencies = [
     "click>=8.1",
     "camoufox[geoip]>=0.4.11",
     "camoufox-captcha>=0.1.0",
+    "tzdata>=2025.2",
 ]
 
 [project.scripts]
