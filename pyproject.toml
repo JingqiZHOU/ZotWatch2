@@ -1,6 +1,6 @@
 [project]
 name = "zotwatch"
-version = "0.3.0"
+version = "0.4.0"
 description = "Personalized academic paper recommendation system based on Zotero library"
 readme = "README.md"
 license = { text = "MIT" }

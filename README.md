@@ -132,7 +132,7 @@ embedding:
   provider: "dashscope"
   model: "text-embedding-v4"
   api_key: "${DASHSCOPE_API_KEY}"
-  batch_size: 25
+  batch_size: 10  # DashScope 要求 batch_size ≤ 10
 
 # Scoring configuration
 scoring:
@@ -144,6 +144,10 @@ scoring:
 **可用模型**：
 - 嵌入模型：`text-embedding-v4`（1024 维）
 - 重排序模型：`qwen3-rerank`
+
+> [!IMPORTANT]
+> - DashScope 的 `batch_size` 必须 ≤ 10（阿里云 API 限制）
+> - Voyage AI 可使用更大的 batch_size（如 128）
 
 **步骤 3：运行 watch 命令**
 
