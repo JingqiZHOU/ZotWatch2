@@ -46,12 +46,15 @@ cp .env.example .env
 |--------|------|------|----------|
 | `ZOTERO_API_KEY` | ✅ | Zotero API 密钥 | [Zotero API Keys](https://www.zotero.org/settings/keys) |
 | `ZOTERO_USER_ID` | ✅ | Zotero 用户 ID（在 API 密钥页面可见） | 同上 |
-| `VOYAGE_API_KEY` | ✅ | Voyage AI API 密钥（用于文本嵌入和重排序） | [Voyage AI](https://dash.voyageai.com/) |
+| `VOYAGE_API_KEY` | ⚠️ | Voyage AI API 密钥（用于文本嵌入和重排序） | [Voyage AI](https://dash.voyageai.com/) |
+| `DASHSCOPE_API_KEY` | ⚠️ | 阿里云 DashScope API 密钥（嵌入和重排序的备选） | [阿里云百炼平台](https://bailian.console.aliyun.com/?tab=model#/api-key) |
 | `MOONSHOT_API_KEY` | ⚠️ | Kimi (Moonshot AI) API 密钥 | [Moonshot AI](https://platform.moonshot.cn/) |
 | `OPENROUTER_API_KEY` | ⚠️ | OpenRouter API 密钥（支持 Claude 等模型） | [OpenRouter](https://openrouter.ai/keys) |
 | `CROSSREF_MAILTO` | 推荐 | Crossref 礼貌池邮箱 | 你的邮箱地址 |
 
-> **注意**：`MOONSHOT_API_KEY` 和 `OPENROUTER_API_KEY` 至少需要配置其中一个，用于 AI 摘要生成和标题翻译功能。默认使用 Kimi，可在 `config/config.yaml` 中切换。
+> **注意**：
+> - **嵌入提供商**：`VOYAGE_API_KEY` 和 `DASHSCOPE_API_KEY` 二选一，用于文本嵌入和重排序。默认使用 Voyage AI，可在 `config/config.yaml` 中切换为 DashScope。
+> - **LLM 提供商**：`MOONSHOT_API_KEY` 和 `OPENROUTER_API_KEY` 至少需要配置其中一个，用于 AI 摘要生成和标题翻译功能。默认使用 Kimi。
 
 ### 4. 运行
 
@@ -434,11 +437,14 @@ ZotWatch 的 `watch` 命令执行以下处理流程：
 |------------|------|------|
 | `ZOTERO_API_KEY` | ✅ | Zotero API 密钥 |
 | `ZOTERO_USER_ID` | ✅ | Zotero 用户 ID |
-| `VOYAGE_API_KEY` | ✅ | Voyage AI API 密钥 |
+| `VOYAGE_API_KEY` | ⚠️ | Voyage AI API 密钥（嵌入提供商，二选一） |
+| `DASHSCOPE_API_KEY` | ⚠️ | 阿里云 DashScope API 密钥（嵌入提供商，二选一） |
 | `MOONSHOT_API_KEY` | 推荐 | Kimi API 密钥（默认 LLM 提供商） |
 | `OPENROUTER_API_KEY` | 可选 | OpenRouter API 密钥（备选 LLM 提供商） |
 | `CROSSREF_MAILTO` | 推荐 | 你的邮箱，用于 Crossref 礼貌池 |
 | `DEPLOY_KEY` | 可选 | SSH 私钥，用于部署到外部仓库 |
+
+> **注意**：`VOYAGE_API_KEY` 和 `DASHSCOPE_API_KEY` 二选一配置即可，取决于你在 `config/config.yaml` 中选择的 `embedding.provider`。
 
 ### 3. 启用 GitHub Pages（可选）
 
