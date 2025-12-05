@@ -122,8 +122,10 @@ class InterestRanker:
         if not recalled:
             return []
 
-        # Step 5: Rerank using Voyage API
-        logger.info("Reranking with Voyage API...")
+        # Step 5: Rerank using configured provider
+        provider = self.settings.scoring.rerank.provider
+        model = getattr(self.reranker, "model", "n/a")
+        logger.info(f"Reranking with {provider.capitalize()} API (model: {model})...")
         documents = [f"{c.title}\n{c.abstract or ''}" for c in recalled]
         top_k_interest = min(interests_config.top_k_interest, len(recalled))
 
