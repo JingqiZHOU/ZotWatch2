@@ -245,7 +245,8 @@ class ClusteringConfig(BaseModel):
 
     Uses adaptive Silhouette-based clustering with automatic k selection.
     The optimal cluster count is determined by maximizing Silhouette score
-    within the range [2, min(max_clusters, n_samples // 39)].
+    within adaptive bounds (sqrt-based with caps) to allow finer granularity
+    on small datasets without over-fragmentation.
 
     K selection uses biased selection: within tolerance of the best score,
     prefer the largest k value for finer-grained research domains. Tolerance

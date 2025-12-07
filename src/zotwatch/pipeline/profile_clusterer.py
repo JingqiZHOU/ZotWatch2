@@ -14,9 +14,6 @@ from zotwatch.utils.temporal import compute_item_age_days
 
 logger = logging.getLogger(__name__)
 
-# FAISS recommends n_samples >= 39 * k to avoid warnings
-FAISS_SAMPLES_PER_CLUSTER = 39
-
 
 class ProfileClusterer:
     """Clusters user library papers into semantic groups using FAISS k-means.
@@ -25,7 +22,7 @@ class ProfileClusterer:
     Handles edge cases:
     - n=0: Returns empty profile (random recommendation will be used)
     - n=1: Treats entire library as single cluster
-    - n>=2: Uses Silhouette score to find optimal k in [2, min(35, n/39)]
+    - n>=2: Uses Silhouette score to find an optimal k with adaptive search bounds
     """
 
     def __init__(
@@ -127,6 +124,7 @@ class ProfileClusterer:
             gpu=False,
             spherical=True,  # Normalize centroids after each iteration
             seed=42,  # Reproducibility
+            min_points_per_centroid=1,  # Allow small clusters without FAISS warnings
         )
         kmeans.train(vectors)
 
@@ -187,7 +185,8 @@ class ProfileClusterer:
     def _determine_cluster_count(self, n_samples: int, vectors: np.ndarray) -> int:
         """Determine optimal cluster count using Silhouette score.
 
-        Automatically caps k to avoid FAISS warnings (n_samples >= 39 * k).
+        Uses adaptive bounds to allow finer granularity for small datasets while
+        avoiding overly fragmented clustering.
 
         Args:
             n_samples: Number of samples to cluster.
@@ -199,17 +198,23 @@ class ProfileClusterer:
         if n_samples < 2:
             return 1  # Single cluster for tiny libraries
 
-        # FAISS recommends n_samples >= 39 * k to avoid warnings
-        faiss_max_k = max(2, n_samples // FAISS_SAMPLES_PER_CLUSTER)
-        max_k = min(35, faiss_max_k, self.config.max_clusters)
+        # Allow finer granularity for small datasets while avoiding over-fragmentation
+        if n_samples < 5:
+            return 1
+
+        theoretical_max = int(np.sqrt(n_samples))
+        if n_samples < 100:
+            # For small sets, allow up to sqrt(N) or modestly sized clusters (avg 5-10 items)
+            max_k_limit = max(theoretical_max, min(n_samples // 5, 8))
+        else:
+            # For larger sets, remain conservative
+            max_k_limit = min(35, theoretical_max)
+
+        # Prevent k from exceeding half the sample size and configured max
+        max_k = min(max_k_limit, n_samples // 2, self.config.max_clusters)
 
         if max_k < 2:
-            # Not enough samples for meaningful multi-cluster analysis
-            logger.info(
-                "Library too small for multi-cluster analysis (%d samples, need %d for k=2)",
-                n_samples,
-                2 * FAISS_SAMPLES_PER_CLUSTER,
-            )
+            logger.info("Library too small for multi-cluster analysis (%d samples)", n_samples)
             return 1
 
         return self._find_optimal_k_silhouette(vectors, min_k=2, max_k=max_k)
@@ -269,6 +274,7 @@ class ProfileClusterer:
                 gpu=False,
                 spherical=True,
                 seed=42,
+                min_points_per_centroid=1,  # Allow evaluation of small clusters
             )
             kmeans.train(sample_vectors)
             _, assignments = kmeans.index.search(sample_vectors, 1)
