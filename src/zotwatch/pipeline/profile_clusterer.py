@@ -223,7 +223,8 @@ class ProfileClusterer:
         Algorithm:
         1. Compute Silhouette score for each k in [min_k, max_k]
         2. Find global best score S_max
-        3. Within {k | S_k >= S_max - delta}, select the maximum k
+        3. Within {k | S_k >= S_max - delta} where delta = pct * |S_max|,
+           select the maximum k
 
         Args:
             vectors: L2-normalized embedding vectors (N x dim).
@@ -298,7 +299,8 @@ class ProfileClusterer:
         global_best_k = max(k for k, score in k_scores if score == global_best_score)
 
         # Biased k-selection: within tolerance of best, select max k
-        delta = self.config.biased_k_tolerance
+        tolerance_fraction = self.config.biased_k_tolerance_percent
+        delta = abs(global_best_score) * tolerance_fraction
 
         # Find all k values within tolerance of the best score
         candidates_within_tolerance = [k for k, score in k_scores if score >= global_best_score - delta]
@@ -310,15 +312,22 @@ class ProfileClusterer:
 
         if best_k != global_best_k:
             logger.info(
-                "Biased selection: k=%d (score=%.4f) over global best k=%d (score=%.4f) within tolerance=%.4f",
+                "Biased selection: k=%d (score=%.4f) over global best k=%d (score=%.4f) within tolerance=%.4f (%.1f%% of best)",
                 best_k,
                 best_score,
                 global_best_k,
                 global_best_score,
                 delta,
+                tolerance_fraction * 100,
             )
         else:
-            logger.info("Selected k=%d with Silhouette score=%.4f", best_k, best_score)
+            logger.info(
+                "Selected k=%d with Silhouette score=%.4f (tolerance=%.4f, %.1f%% of best)",
+                best_k,
+                best_score,
+                delta,
+                tolerance_fraction * 100,
+            )
 
         return best_k
 

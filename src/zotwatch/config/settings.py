@@ -248,13 +248,14 @@ class ClusteringConfig(BaseModel):
     within the range [2, min(max_clusters, n_samples // 39)].
 
     K selection uses biased selection: within tolerance of the best score,
-    prefer the largest k value for finer-grained research domains.
+    prefer the largest k value for finer-grained research domains. Tolerance
+    is expressed as a percentage of the best Silhouette score.
     """
 
     enabled: bool = True
     max_clusters: int = 35  # Upper limit on cluster count
     min_cluster_size: int = 1  # Minimum papers per valid cluster (1 = allow single-paper clusters)
-    biased_k_tolerance: float = 0.05  # In {k | S_k >= S_max - delta}, select max k
+    biased_k_tolerance_percent: float = 0.10  # Relative tolerance: within (1 - pct) of best Silhouette, select max k
 
     # Temporal weighting
     temporal: TemporalConfig = Field(default_factory=TemporalConfig)
@@ -266,6 +267,13 @@ class ClusteringConfig(BaseModel):
     kmeans_iterations: int = 20  # Number of k-means iterations
     subsample_threshold: int = 5000  # Subsample above this for silhouette search
     representative_title_count: int = 5  # Number of representative titles per cluster
+
+    @field_validator("biased_k_tolerance_percent")
+    @classmethod
+    def validate_biased_k_tolerance_percent(cls, value: float) -> float:
+        if not 0 <= value <= 1:
+            raise ValueError("biased_k_tolerance_percent must be between 0 and 1 (representing a percentage)")
+        return value
 
 
 class ProfileConfig(BaseModel):

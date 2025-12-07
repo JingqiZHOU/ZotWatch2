@@ -122,7 +122,7 @@ profile:
     enabled: true
     max_clusters: 35               # Upper limit on cluster count
     min_cluster_size: 1            # Minimum papers per valid cluster (1 = allow single-paper clusters)
-    biased_k_tolerance: 0.05       # In {k | S_k >= S_max - δ}, select max k for finer granularity
+    biased_k_tolerance_percent: 0.10  # Within 10% of best Silhouette score, select the largest k
     generate_labels: true          # Use LLM to generate cluster labels
     # Temporal weighting for time-decay of paper relevance
     temporal:
