@@ -62,22 +62,22 @@ scoring:
   # Rerank settings (only used when interests.enabled=true)
   # Provider MUST match embedding.provider when interests are enabled
   rerank:
-    provider: "dashscope"  # Options: "voyage" or "dashscope"
-    model: "qwen3-rerank"  # voyage: rerank-2/rerank-2.5, dashscope: qwen3-rerank
+    provider: "voyage"  # Options: "voyage" or "dashscope"
+    model: "rerank-2.5"  # voyage: rerank-2/rerank-2.5, dashscope: qwen3-rerank
 
 # Embedding configuration (provider MUST match rerank.provider when interests are enabled)
 embedding:
-  provider: "dashscope"  # Options: "voyage" or "dashscope"
-  model: "text-embedding-v3"  # voyage: voyage-3.5, dashscope: text-embedding-v3
-  api_key: "${DASHSCOPE_API_KEY}"  # voyage: VOYAGE_API_KEY, dashscope: DASHSCOPE_API_KEY
-  batch_size: 10  # For DashScope models, must be <=10
+  provider: "voyage"  # Options: "voyage" or "dashscope"
+  model: "voyage-3.5"  # voyage: voyage-3.5, dashscope: text-embedding-v3
+  api_key: "${VOYAGE_API_KEY}"  # voyage: VOYAGE_API_KEY, dashscope: DASHSCOPE_API_KEY
+  batch_size: 128  # For DashScope models, must be <=10
 
 # LLM configuration for AI summaries and translation
 llm:
   enabled: true
-  provider: "deepseek"  # Options: "kimi", "openrouter", or "deepseek"
-  api_key: "${DEEPSEEK_API_KEY}"  # deepseek: DEEPSEEK_API_KEY
-  model: "deepseek-chat"
+  provider: "kimi"  # Options: "kimi", "openrouter", or "deepseek"
+  api_key: "${MOONSHOT_API_KEY}"  # kimi: MOONSHOT_API_KEY
+  model: "kimi-k2-turbo-preview"
   max_tokens: 5120
   temperature: 0.3
   retry:

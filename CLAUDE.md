@@ -262,6 +262,25 @@ Optional:
 - Embedding and rerank providers must use the same provider when interests.enabled=true (both Voyage or both DashScope)
 - When writing code, please use English for all comments
 - Use Python 3.10+ type annotation syntax: `list[X]`, `dict[K, V]`, `X | None` instead of `List`, `Dict`, `Optional` from typing module
+
+## Commit Message Conventions
+
+This project follows Conventional Commits style for commit messages:
+
+- **Type**: lowercase verb category (feat, fix, refactor, chore, docs, test, perf, etc.)
+  - Optional scope in parentheses to indicate submodule: `feat(profile): ...`
+- **Subject**: concise imperative sentence, lowercase first letter, no ending period
+  - Keep the entire message within ~72 characters
+- **Structure**: `type(scope?): subject`
+  - Examples: `feat: add temporal clustering` or `fix(api): handle timeouts`
+- **Body** (optional): for complex changes, add a blank line after subject then write:
+  - Bullet points explaining the changes
+  - Breaking changes (if any)
+  - Related issues
+- **Voice**: use present tense/imperative mood
+  - Focus on "what" and "why" rather than implementation details
+  - Avoid lengthy descriptions and ending punctuation
+
 ## Troubleshooting
 
 ### Provider Mismatch Error
