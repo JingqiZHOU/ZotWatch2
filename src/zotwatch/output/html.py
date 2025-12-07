@@ -42,10 +42,25 @@ def _convert_utc_to_tz(dt: datetime | None, target_tz: ZoneInfo) -> datetime | N
     return dt.astimezone(target_tz)
 
 
-def _build_cluster_links(clustered_profile, threshold: float = 0.5) -> list[dict]:
-    """Precompute inter-cluster similarity links from normalized centroids.
+def _build_cluster_links(
+    clustered_profile,
+    threshold: float = 0.5,
+    max_neighbors: int = 2,
+) -> list[dict]:
+    """Precompute inter-cluster similarity links using KNN + threshold strategy.
 
     Uses weighted_centroid when available. Falls back to centroid.
+
+    Strategy: For each cluster, keep at most `max_neighbors` edges to its
+    most similar neighbors, but only if similarity > threshold.
+
+    Args:
+        clustered_profile: ClusteredProfile with cluster centroids.
+        threshold: Minimum similarity threshold for edges.
+        max_neighbors: Maximum number of neighbors per cluster (K in KNN).
+
+    Returns:
+        List of edge dicts: {"source": id, "target": id, "value": similarity}
     """
     clusters = getattr(clustered_profile, "clusters", None) or []
     if not clusters:
@@ -60,16 +75,48 @@ def _build_cluster_links(clustered_profile, threshold: float = 0.5) -> list[dict
             continue
         normalized.append((c.cluster_id, [v / norm for v in vec]))
 
-    links: list[dict] = []
     n = len(normalized)
+    if n < 2:
+        return []
+
+    # Compute all pairwise similarities
+    similarity_matrix: dict[tuple[int, int], float] = {}
     for i in range(n):
         id_i, vec_i = normalized[i]
         for j in range(i + 1, n):
             id_j, vec_j = normalized[j]
             # dot product (cosine since normalized)
             sim = sum(a * b for a, b in zip(vec_i, vec_j))
+            similarity_matrix[(id_i, id_j)] = sim
+            similarity_matrix[(id_j, id_i)] = sim
+
+    # For each cluster, find top-K neighbors above threshold
+    selected_edges: set[tuple[int, int]] = set()
+
+    for i in range(n):
+        cluster_id = normalized[i][0]
+
+        # Get all neighbors with their similarities
+        neighbors = []
+        for j in range(n):
+            if i == j:
+                continue
+            neighbor_id = normalized[j][0]
+            key = (cluster_id, neighbor_id) if cluster_id < neighbor_id else (neighbor_id, cluster_id)
+            sim = similarity_matrix.get((cluster_id, neighbor_id), 0)
             if sim > threshold:
-                links.append({"source": id_i, "target": id_j, "value": sim})
+                neighbors.append((neighbor_id, sim, key))
+
+        # Sort by similarity descending, take top K
+        neighbors.sort(key=lambda x: x[1], reverse=True)
+        for neighbor_id, sim, edge_key in neighbors[:max_neighbors]:
+            selected_edges.add(edge_key)
+
+    # Convert to link list
+    links: list[dict] = []
+    for id_i, id_j in selected_edges:
+        sim = similarity_matrix.get((id_i, id_j), 0)
+        links.append({"source": id_i, "target": id_j, "value": sim})
 
     return links
 
