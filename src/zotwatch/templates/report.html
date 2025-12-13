@@ -366,9 +366,7 @@
             id: {{ c.cluster_id }},
             label: {{ c.label|default('聚类 ' ~ loop.index, true)|tojson }},
             size: {{ c.member_count }},
-            coherence: {{ c.coherence_score }},
-            keywords: [{% for kw in c.keywords[:3] %}{{ kw|tojson }}{% if not loop.last %}, {% endif %}{% endfor %}],
-            centroid: {{ (c.weighted_centroid or c.centroid)|tojson }}
+            keywords: [{% for kw in c.keywords[:3] %}{{ kw|tojson }}{% if not loop.last %}, {% endif %}{% endfor %}]
           }{% if not loop.last %},{% endif %}
           {% endfor %}
         ];
