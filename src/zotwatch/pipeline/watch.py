@@ -524,11 +524,18 @@ class WatchPipeline:
         # Summarize ranked works
         progress("summary", f"Generating summaries for {len(result.ranked_works)} papers...")
         summarizer = PaperSummarizer(llm_client, storage, model=self.settings.llm.model)
-        summaries = summarizer.summarize_batch(result.ranked_works)
-        result.stats.summaries_generated = len(summaries)
+        summary_result = summarizer.summarize_batch(result.ranked_works)
+        result.stats.summaries_generated = summary_result.success_count
+
+        if summary_result.failed_ids:
+            logger.warning(
+                "Failed to summarize %d ranked papers: %s",
+                summary_result.failure_count,
+                summary_result.failed_ids[:5],  # Log first 5 failed IDs
+            )
 
         # Attach summaries to works
-        summary_map = {s.paper_id: s for s in summaries}
+        summary_map = {s.paper_id: s for s in summary_result.summaries}
         for work in result.ranked_works:
             if work.identifier in summary_map:
                 work.summary = summary_map[work.identifier]
@@ -536,8 +543,17 @@ class WatchPipeline:
         # Summarize interest works
         if result.interest_works:
             progress("summary", f"Generating summaries for {len(result.interest_works)} interest papers...")
-            interest_summaries = summarizer.summarize_batch(result.interest_works)
-            interest_map = {s.paper_id: s for s in interest_summaries}
+            interest_result = summarizer.summarize_batch(result.interest_works)
+            result.stats.summaries_generated += interest_result.success_count
+
+            if interest_result.failed_ids:
+                logger.warning(
+                    "Failed to summarize %d interest papers: %s",
+                    interest_result.failure_count,
+                    interest_result.failed_ids[:5],
+                )
+
+            interest_map = {s.paper_id: s for s in interest_result.summaries}
             for work in result.interest_works:
                 if work.identifier in interest_map:
                     work.summary = interest_map[work.identifier]

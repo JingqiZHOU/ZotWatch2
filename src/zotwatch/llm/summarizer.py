@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+from dataclasses import dataclass
 
 from zotwatch.core.models import (
     BulletSummary,
@@ -17,6 +18,29 @@ from .base import BaseLLMProvider
 from .prompts import BULLET_SUMMARY_PROMPT, DETAILED_ANALYSIS_PROMPT
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class SummarizationResult:
+    """Result of batch summarization.
+
+    Attributes:
+        summaries: Successfully generated summaries.
+        failed_ids: Paper identifiers that failed to summarize.
+    """
+
+    summaries: list[PaperSummary]
+    failed_ids: list[str]
+
+    @property
+    def success_count(self) -> int:
+        """Number of successfully summarized papers."""
+        return len(self.summaries)
+
+    @property
+    def failure_count(self) -> int:
+        """Number of papers that failed to summarize."""
+        return len(self.failed_ids)
 
 
 class PaperSummarizer:
@@ -151,12 +175,23 @@ class PaperSummarizer:
         *,
         force: bool = False,
         limit: int | None = None,
-    ) -> list[PaperSummary]:
-        """Generate summaries for multiple papers."""
+    ) -> SummarizationResult:
+        """Generate summaries for multiple papers.
+
+        Args:
+            works: List of ranked works to summarize.
+            force: If True, regenerate even if cached.
+            limit: Maximum number of papers to summarize.
+
+        Returns:
+            SummarizationResult containing successful summaries and failed paper IDs.
+        """
         if limit:
             works = works[:limit]
 
-        summaries = []
+        summaries: list[PaperSummary] = []
+        failed_ids: list[str] = []
+
         for i, work in enumerate(works):
             try:
                 logger.info("Summarizing paper %d/%d: %s", i + 1, len(works), work.title[:50])
@@ -164,8 +199,16 @@ class PaperSummarizer:
                 summaries.append(summary)
             except Exception as e:
                 logger.error("Failed to summarize %s: %s", work.identifier, e)
+                failed_ids.append(work.identifier)
 
-        return summaries
+        if failed_ids:
+            logger.warning(
+                "Summarization completed with %d failures out of %d papers",
+                len(failed_ids),
+                len(works),
+            )
+
+        return SummarizationResult(summaries=summaries, failed_ids=failed_ids)
 
 
-__all__ = ["PaperSummarizer"]
+__all__ = ["PaperSummarizer", "SummarizationResult"]

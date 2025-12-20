@@ -38,7 +38,7 @@ class InterestRanker:
         self.reranker = reranker
         self.interest_refiner = interest_refiner
         self.base_dir = Path(base_dir) if base_dir else Path.cwd()
-        self._journal_scorer = JournalScorer(self.base_dir)
+        self._journal_scorer = JournalScorer(self.base_dir, config=settings.scoring.journal)
 
     def select(self, candidates: list[CandidateWork]) -> list[InterestWork]:
         """Select interest-based papers using FAISS recall + reranking.

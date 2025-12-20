@@ -27,6 +27,7 @@ class CrossrefSource(BaseSource):
         super().__init__(settings)
         self.config = settings.sources.crossref
         self.session = requests.Session()
+        self._issn_whitelist: list[str] | None = None  # Lazy cache
 
     @property
     def name(self) -> str:
@@ -36,6 +37,13 @@ class CrossrefSource(BaseSource):
     def enabled(self) -> bool:
         return self.config.enabled
 
+    @property
+    def issn_whitelist(self) -> list[str]:
+        """Get ISSN whitelist (cached after first load)."""
+        if self._issn_whitelist is None:
+            self._issn_whitelist = self._load_issn_whitelist()
+        return self._issn_whitelist
+
     def fetch(self, days_back: int | None = None) -> list[CandidateWork]:
         """Fetch Crossref works from journals in the ISSN whitelist."""
         if days_back is None:
@@ -43,8 +51,8 @@ class CrossrefSource(BaseSource):
 
         max_results = self.config.max_results
 
-        # Load ISSN whitelist
-        issns = self._load_issn_whitelist()
+        # Use cached ISSN whitelist
+        issns = self.issn_whitelist
         if not issns:
             logger.warning("No ISSNs in whitelist, skipping Crossref fetch")
             return []

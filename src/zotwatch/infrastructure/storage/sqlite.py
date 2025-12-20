@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS clustered_profile (
 
 CREATE INDEX IF NOT EXISTS idx_items_version ON items(version);
 CREATE INDEX IF NOT EXISTS idx_items_content_hash ON items(content_hash);
+CREATE INDEX IF NOT EXISTS idx_items_doi ON items(doi);
 CREATE INDEX IF NOT EXISTS idx_summaries_expires ON summaries(expires_at);
 CREATE INDEX IF NOT EXISTS idx_profile_hash ON profile_analysis(library_hash);
 """
@@ -143,9 +144,29 @@ class ProfileStorage:
 
     # Item helpers
 
-    def upsert_item(self, item: ZoteroItem, content_hash: str | None = None) -> None:
-        """Insert or update item."""
-        data = (
+    _UPSERT_SQL = """
+        INSERT INTO items(
+            key, version, title, abstract, creators, tags, collections,
+            year, doi, url, raw_json, content_hash
+        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET
+            version=excluded.version,
+            title=excluded.title,
+            abstract=excluded.abstract,
+            creators=excluded.creators,
+            tags=excluded.tags,
+            collections=excluded.collections,
+            year=excluded.year,
+            doi=excluded.doi,
+            url=excluded.url,
+            raw_json=excluded.raw_json,
+            content_hash=excluded.content_hash,
+            updated_at=CURRENT_TIMESTAMP
+    """
+
+    def _item_to_row(self, item: ZoteroItem, content_hash: str | None) -> tuple:
+        """Convert ZoteroItem to database row tuple."""
+        return (
             item.key,
             item.version,
             item.title,
@@ -159,28 +180,28 @@ class ProfileStorage:
             json.dumps(item.raw),
             content_hash,
         )
-        self.connect().execute(
-            """
-            INSERT INTO items(
-                key, version, title, abstract, creators, tags, collections, year, doi, url, raw_json, content_hash
-            ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(key) DO UPDATE SET
-                version=excluded.version,
-                title=excluded.title,
-                abstract=excluded.abstract,
-                creators=excluded.creators,
-                tags=excluded.tags,
-                collections=excluded.collections,
-                year=excluded.year,
-                doi=excluded.doi,
-                url=excluded.url,
-                raw_json=excluded.raw_json,
-                content_hash=excluded.content_hash,
-                updated_at=CURRENT_TIMESTAMP
-            """,
-            data,
-        )
-        self.connect().commit()
+
+    def upsert_item(self, item: ZoteroItem, content_hash: str | None = None) -> None:
+        """Insert or update a single item."""
+        self.upsert_items_batch([(item, content_hash)])
+
+    def upsert_items_batch(self, items: list[tuple[ZoteroItem, str | None]]) -> None:
+        """Batch insert or update items with single commit.
+
+        Args:
+            items: List of (ZoteroItem, content_hash) tuples.
+        """
+        if not items:
+            return
+
+        conn = self.connect()
+        rows = [self._item_to_row(item, content_hash) for item, content_hash in items]
+        try:
+            conn.executemany(self._UPSERT_SQL, rows)
+            conn.commit()
+        except sqlite3.Error:
+            conn.rollback()
+            raise
 
     def remove_items(self, keys: Iterable[str]) -> None:
         """Remove items by keys."""

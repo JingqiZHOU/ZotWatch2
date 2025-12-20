@@ -140,10 +140,47 @@ class ScoringConfig(BaseModel):
         micro_weight: float = 0.65  # α: weight for micro-level score
         knn_neighbors: int = 5  # L: neighbor count used for micro-level scoring
 
+    class JournalScoringConfig(BaseModel):
+        """Journal impact factor scoring configuration.
+
+        These settings control how journal impact factors are normalized:
+        - arxiv_score: Score assigned to arXiv preprints (mid-range)
+        - chinese_core_score: Score for Chinese core journals
+        - unknown_score: Default score for unknown journals
+        - log_base: Base for logarithmic normalization of raw IF values
+        """
+
+        arxiv_score: float = 0.6
+        chinese_core_score: float = 0.7
+        unknown_score: float = 0.3
+        log_base: float = 25.0
+
+    class FinalWeightsConfig(BaseModel):
+        """Final score composition weights.
+
+        The final score is computed as:
+        score = similarity_weight * similarity + impact_factor_weight * if_score
+        """
+
+        similarity_weight: float = 0.8
+        impact_factor_weight: float = 0.2
+
+        @model_validator(mode="after")
+        def validate_weights_sum(self) -> "ScoringConfig.FinalWeightsConfig":
+            """Ensure weights sum to 1.0 for proper normalization."""
+            total = self.similarity_weight + self.impact_factor_weight
+            if abs(total - 1.0) > 1e-6:
+                raise ValueError(
+                    f"similarity_weight + impact_factor_weight must equal 1.0, got {total}"
+                )
+            return self
+
     thresholds: Thresholds = Field(default_factory=Thresholds)
     interests: InterestsConfig = Field(default_factory=InterestsConfig)
     rerank: RerankConfig = Field(default_factory=RerankConfig)
     fusion: FusionScoringConfig = Field(default_factory=FusionScoringConfig)
+    journal: JournalScoringConfig = Field(default_factory=JournalScoringConfig)
+    final_weights: FinalWeightsConfig = Field(default_factory=FinalWeightsConfig)
 
 
 # Embedding Configuration

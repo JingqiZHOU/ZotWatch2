@@ -144,6 +144,9 @@ class ZoteroIngestor:
             items = response.json()
             response_version = int(response.headers.get("Last-Modified-Version", 0))
             max_version = max(max_version, response_version)
+
+            # Collect items for batch insert
+            batch: list[tuple[ZoteroItem, str]] = []
             for raw_item in items:
                 # Skip non-bibliographic items (attachments, annotations, notes)
                 data = raw_item.get("data", {})
@@ -161,9 +164,12 @@ class ZoteroIngestor:
                     ",".join(zot_item.creators),
                     ",".join(zot_item.tags),
                 )
-                self.storage.upsert_item(zot_item, content_hash=content_hash)
+                batch.append((zot_item, content_hash))
                 stats.fetched += 1
                 stats.updated += 1
+
+            # Batch insert all items from this page with single commit
+            self.storage.upsert_items_batch(batch)
 
             # Progress callback after each page
             if on_progress:

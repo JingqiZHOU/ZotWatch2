@@ -5,6 +5,7 @@ import logging
 import math
 from pathlib import Path
 
+from zotwatch.config.settings import ScoringConfig
 from zotwatch.core.models import CandidateWork
 
 logger = logging.getLogger(__name__)
@@ -13,19 +14,19 @@ logger = logging.getLogger(__name__)
 class JournalScorer:
     """Computes journal impact factor scores for candidate works."""
 
-    # Scoring constants
-    ARXIV_SCORE = 0.6
-    CHINESE_CORE_SCORE = 0.7
-    UNKNOWN_SCORE = 0.3
-    LOG_BASE = 25  # log normalization base
-
-    def __init__(self, base_dir: Path | str):
+    def __init__(
+        self,
+        base_dir: Path | str,
+        config: ScoringConfig.JournalScoringConfig,
+    ):
         """Initialize journal scorer.
 
         Args:
-            base_dir: Base directory containing data/journal_whitelist.csv
+            base_dir: Base directory containing data/journal_whitelist.csv.
+            config: Journal scoring configuration.
         """
         self.base_dir = Path(base_dir)
+        self.config = config
         self._whitelist = self._load_whitelist()
 
     def _load_whitelist(self) -> dict[str, dict]:
@@ -69,7 +70,7 @@ class JournalScorer:
         """
         # arXiv papers get mid-range score
         if candidate.source == "arxiv":
-            return (self.ARXIV_SCORE, None, False)
+            return (self.config.arxiv_score, None, False)
 
         # Try to find journal in whitelist by any of its ISSNs
         issns = candidate.extra.get("issns") or []
@@ -77,14 +78,14 @@ class JournalScorer:
             if issn and issn in self._whitelist:
                 entry = self._whitelist[issn]
                 if entry["is_cn"]:
-                    return (self.CHINESE_CORE_SCORE, None, True)
+                    return (self.config.chinese_core_score, None, True)
                 if entry["impact_factor"] is not None:
                     raw_if = entry["impact_factor"]
-                    normalized = math.log(raw_if + 1) / math.log(self.LOG_BASE)
+                    normalized = math.log(raw_if + 1) / math.log(self.config.log_base)
                     return (min(normalized, 1.0), raw_if, False)
 
         # Unknown journal
-        return (self.UNKNOWN_SCORE, None, False)
+        return (self.config.unknown_score, None, False)
 
 
 __all__ = ["JournalScorer"]

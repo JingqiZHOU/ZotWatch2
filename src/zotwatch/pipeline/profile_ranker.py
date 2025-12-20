@@ -81,7 +81,7 @@ class ProfileRanker:
             index_path=self.base_dir / "data" / "faiss.index",
         )
         self.index = FaissIndex.load(self.artifacts.index_path)
-        self._journal_scorer = JournalScorer(self.base_dir)
+        self._journal_scorer = JournalScorer(self.base_dir, config=settings.scoring.journal)
         self._last_computed_thresholds: ComputedThresholds | None = None
 
         # Load cluster scorer if clustering is enabled
@@ -357,7 +357,7 @@ class ProfileRanker:
 
         Always use micro k-NN + macro cluster fusion:
         - similarity = α * S_micro + (1 - α) * S_macro
-        - score = 0.8 * similarity + 0.2 * IF
+        - score = sim_weight * similarity + if_weight * IF
         Fallback to single-neighbor when clusters or temporal weights are unavailable;
         fallback to random when the profile is empty.
         """
@@ -374,6 +374,7 @@ class ProfileRanker:
         logger.info("Scoring %d candidate works", len(candidates))
 
         fusion_config = self.settings.scoring.fusion
+        final_weights = self.settings.scoring.final_weights
         use_fusion = self._cluster_scorer is not None
 
         # First pass: compute all scores
@@ -405,9 +406,12 @@ class ProfileRanker:
                 # Fusion: similarity = α * S_micro + (1-α) * S_macro
                 similarity = alpha * micro + (1 - alpha) * macro
 
-                # Final score: 0.8 * similarity + 0.2 * IF
+                # Final score: sim_weight * similarity + if_weight * IF
                 if_score, raw_if, is_cn = self._journal_scorer.compute_score(candidate)
-                score = 0.8 * similarity + 0.2 * if_score
+                score = (
+                    final_weights.similarity_weight * similarity
+                    + final_weights.impact_factor_weight * if_score
+                )
 
                 scores_data.append(
                     (
@@ -430,7 +434,10 @@ class ProfileRanker:
             for i, candidate in enumerate(candidates):
                 similarity = float(distances[i][0]) if distances[i].size else 0.0
                 if_score, raw_if, is_cn = self._journal_scorer.compute_score(candidate)
-                score = 0.8 * similarity + 0.2 * if_score
+                score = (
+                    final_weights.similarity_weight * similarity
+                    + final_weights.impact_factor_weight * if_score
+                )
                 scores_data.append(
                     (
                         candidate,
