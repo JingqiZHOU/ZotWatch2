@@ -540,7 +540,7 @@ def test_arxiv() -> TestResult:
         resp = requests.get(
             "https://export.arxiv.org/api/query",
             params=params,
-            timeout=30,
+            timeout=120,
         )
 
         if resp.status_code == 200:
