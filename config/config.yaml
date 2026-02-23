@@ -104,7 +104,7 @@ output:
   timezone: "Asia/Shanghai"  # IANA timezone name (e.g., "UTC", "America/New_York")
   rss:
     title: "ZotWatch Feed"
-    link: "https://ehehe.cn/zotwatch/"
+    link: "https://github.com/JingqiZHOU/ZotWatch2/"
     description: "AI-assisted literature watch"
   html:
     template: "report.html"
