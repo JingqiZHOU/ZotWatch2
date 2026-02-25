@@ -30,7 +30,7 @@ jobs:
       GIT_USER_NAME: 'JingqiZHOU'
       GIT_USER_EMAIL: 'zhou.jing.qi@163.com'
       TARGET_REPOSITORY: 'JingqiZHOU/JingqiZHOU.github.io'
-      DEPLOY_SUBDIR: 'zotwatch'
+      DEPLOY_SUBDIR: 'zotwatch2'
       TIMEZONE: 'Asia/Shanghai'
 
     steps:
