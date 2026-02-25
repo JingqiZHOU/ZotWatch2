@@ -103,31 +103,31 @@ jobs:
 
       - name: Deploy to GitHub Repository
         run:  |
-            mkdir -p ~/.ssh
-            ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
-            # 强制 Git 使用 SSH 并跳过首次连接的交互确认
-            # export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no"          
-            # Clone existing repository
-            git clone --depth 1 git@github.com:${{ env.TARGET_REPOSITORY }}.git deploy_repo
-            cd deploy_repo
+          mkdir -p ~/.ssh
+          ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
+          # 强制 Git 使用 SSH 并跳过首次连接的交互确认
+          # export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no"          
+          # Clone existing repository
+          git clone --depth 1 git@github.com:${{ env.TARGET_REPOSITORY }}.git deploy_repo
+          cd deploy_repo
 
-            # Ensure zotwatch subdirectory exists (preserve historical reports)
-            mkdir -p ${{ env.DEPLOY_SUBDIR }}
+          # Ensure zotwatch subdirectory exists (preserve historical reports)
+          mkdir -p ${{ env.DEPLOY_SUBDIR }}
 
-            # Copy new reports (overwrites same-dated reports, preserves historical ones)
-            cp ../public/report-*.html ${{ env.DEPLOY_SUBDIR }}/ 2>/dev/null || true
+          # Copy new reports (overwrites same-dated reports, preserves historical ones)
+          cp ../public/report-*.html ${{ env.DEPLOY_SUBDIR }}/ 2>/dev/null || true
 
-            # Overwrite feed.xml with latest version
-            cp ../public/feed.xml ${{ env.DEPLOY_SUBDIR }}/ 2>/dev/null || true
+          # Overwrite feed.xml with latest version
+          cp ../public/feed.xml ${{ env.DEPLOY_SUBDIR }}/ 2>/dev/null || true
 
-            # Copy latest report as index.html
-            LATEST=$(ls -t ${{ env.DEPLOY_SUBDIR }}/report-*.html 2>/dev/null | head -1 || echo "")
-            if [ -n "$LATEST" ]; then
-            cp "$LATEST" ${{ env.DEPLOY_SUBDIR }}/index.html
-            fi
+          # Copy latest report as index.html
+          LATEST=$(ls -t ${{ env.DEPLOY_SUBDIR }}/report-*.html 2>/dev/null | head -1 || echo "")
+          if [ -n "$LATEST" ]; then
+          cp "$LATEST" ${{ env.DEPLOY_SUBDIR }}/index.html
+          fi
 
-            # Commit and push
-            git add .
-            export TZ=${{ env.TIMEZONE }}
-            git commit -m "ZotWatch report updated: $(date '+%Y-%m-%d %H:%M:%S %Z')" || echo "No changes to commit"
-            git push origin main
+          # Commit and push
+          git add .
+          export TZ=${{ env.TIMEZONE }}
+          git commit -m "ZotWatch report updated: $(date '+%Y-%m-%d %H:%M:%S %Z')" || echo "No changes to commit"
+          git push origin main
