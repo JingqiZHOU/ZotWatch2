@@ -91,7 +91,7 @@ jobs:
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
         run: |
           mkdir -p ~/.ssh/
-          echo "$DEPLOY_KEY" > ~/.ssh/id_rsa
+          printf "$DEPLOY_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan github.com >> ~/.ssh/known_hosts
 
@@ -102,12 +102,7 @@ jobs:
           git config --global init.defaultBranch main
 
       - name: Deploy to GitHub Repository
-        run:  |
-          mkdir -p ~/.ssh
-          ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
-          
-          # 强制 Git 使用 SSH 并跳过首次连接的交互确认
-          # export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no"          
+        run:  |                
           # Clone existing repository
           git clone --depth 1 git@github.com:${{ env.TARGET_REPOSITORY }}.git deploy_repo
           cd deploy_repo
