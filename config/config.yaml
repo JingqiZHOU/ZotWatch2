@@ -9,15 +9,15 @@ zotero:
     polite_delay_ms: 200
 
 sources:
-  arxiv:
+  pubmed:
     enabled: true
-    categories:
-      - "cs.LG"   # Machine Learning
-      - "cs.CV"   # Computer Vision and Pattern Recognition
-      - "cs.AI"   # Artificial Intelligence
-      - "stat.ML" # Machine Learning (Statistics)
-    days_back: 4
-    max_results: 3000
+    query: "(MASLD OR NAFLD OR 'fatty liver') AND (UK Biobank OR 'acceleration' OR 'physical activity')"
+    days_back: 7        # 建议拉长到 7 天，确保每周都有内容
+    max_results: 100
+  medrxiv:
+    enabled: true
+    query: "MASLD"
+    days_back: 7
   crossref:
     enabled: true
     mailto: "${CROSSREF_MAILTO}"
